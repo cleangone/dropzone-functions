@@ -6,9 +6,9 @@ const DROPZONE_HREF = "href=http://drop.4th.host/"
 const INVOICE_CREATED = 'Created'
 const INVOICE_UPDATED = 'Updated'
 const INVOICE_SENT = 'Sent'
-// const INVOICE_PAID = 'Paid'
+const INVOICE_PAID = 'Paid'
 
-// const ITEM_STATUS_HOLD = 'On Hold'
+const ITEM_STATUS_SOLD = 'Sold'
 
 "use strict"
 const log = functions.logger
@@ -32,16 +32,13 @@ export class InvoiceProcessor {
       const invoice = change.after.data()
       if (!invoice) { return logError(invoiceDesc + " data does not exist") }
 
-      if (invoice.status == INVOICE_SENT) { 
-         log.info(invoiceDesc + " already sent")
-         return null
-      }      
-      else if (invoice.status == INVOICE_CREATED || invoice.status == INVOICE_UPDATED) {
+      if (invoice.status === INVOICE_SENT) { return null }      
+      else if (invoice.status === INVOICE_CREATED || invoice.status === INVOICE_UPDATED) {
          // send email and set status to Sent
          let itemText = ''
          let itemId = null
          for (const item of invoice.items) {
-            if (itemText.length == 0) { itemId = item.id }
+            if (itemText.length === 0) { itemId = item.id }
             else {
                itemText += ", " 
                itemId = null
@@ -60,6 +57,22 @@ export class InvoiceProcessor {
          })
          .catch(error => { return logError("Error sending Email", error) }) 
       } 
+      else if (invoice.status === INVOICE_PAID) {
+         const promises = []
+         for (const item of invoice.items) {
+            const itemDesc = "items[id: " + item.id + "]"
+            
+            log.info("Updating " + itemDesc)  
+            const itemRef = this.db.collection("items").doc(item.id);
+            const promise = itemRef.update({ status: ITEM_STATUS_SOLD } )
+            .catch(error => { throw logReturnError("Error updating " + itemDesc, error) })
+   
+            promises.push(promise)
+         }
+      
+         //return Promise.all(promises).then(arrayOfPromises => {})
+         return Promise.all(promises)
+      }
       else { 
          // new status is Shipped - no-op
          // todo - should we check if old status was Paid? Not no-op if old status was Sent
@@ -77,4 +90,11 @@ function logError(msg: string, error: any = null) {
    else { log.error(msg) }
 
    return null
+}
+
+function logReturnError(msg: string, error: any) {
+   if (error) { log.error(msg, error)}
+   else { log.error(msg) }
+
+   return error
 }

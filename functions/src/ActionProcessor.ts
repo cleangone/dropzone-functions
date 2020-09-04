@@ -27,16 +27,16 @@ export class ActionProcessor {
       const action = snapshot.data()
       if (!action) { return logError("Action does not exist") }
       
-      if (action.actionType == ACTION_TYPE_BID || action.actionType == ACTION_TYPE_PURCHASE_REQ) {
+      if (action.actionType === ACTION_TYPE_BID || action.actionType === ACTION_TYPE_PURCHASE_REQ) {
          if (!action.itemId) { return logError("action.itemId does not exist") }
          if (!action.userId) { return logError("action.userId does not exist") }
       }
 
       log.info("Processing " + desc(action))
-      if (action.actionType == ACTION_TYPE_BID) {
+      if (action.actionType === ACTION_TYPE_BID) {
          return this.processBid(action, snapshot)
       }
-      else if (action.actionType == ACTION_TYPE_PURCHASE_REQ) {
+      else if (action.actionType === ACTION_TYPE_PURCHASE_REQ) {
          return this.processPurchaseRequest(action, snapshot)
       }
       else {
@@ -112,8 +112,8 @@ export class ActionProcessor {
          if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
    
          const processedDate = Date.now()
-         if (item.buyPrice == 0) {
-            let itemUpdate = { 
+         if (item.buyPrice === 0) {
+            const itemUpdate = { 
                buyPrice: item.startPrice, 
                buyerId: userId, 
                lastUserActivityDate: processedDate, 
