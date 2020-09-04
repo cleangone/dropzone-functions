@@ -1,0 +1,14 @@
+## Compiled JavaScript files
+**/*.js
+**/*.js.map
+
+# Typescript v1 declaration files
+typings/
+
+package-lock.json
+package.json
+tsconfig.json
+tslint.json
+.DS_Store
+
+node_modules/
