@@ -2,12 +2,12 @@ import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 
 const ACTION_TYPE_BID            = 'Bid'
-const ACTION_TYPE_PURCHASE_REQ   = 'PurchaseRequest'
+const ACTION_TYPE_PURCHASE_REQ   = 'Purchase Request'
 const ACTION_STATUS_PROCESSED    = 'Processed'
 const ACTION_RESULT_HIGH_BID     = 'High Bid'
 const ACTION_RESULT_OUTBID       = 'Outbid'
 const ACTION_RESULT_PURCHASED    = 'Purchased'
-const ACTION_RESULT_ALREADY_SOLD ='Already Sold'
+const ACTION_RESULT_ALREADY_SOLD = 'Already Sold'
 
 const ITEM_STATUS_DROPPING = 'Dropping'
 const ITEM_STATUS_HOLD = 'On Hold'
@@ -64,13 +64,16 @@ export class ActionProcessor {
          const extensionSeconds = 30
          const dropDoneDate = processedDate + extensionSeconds * 1000
 
+         let prevActionId = ''
          let itemUpdate = { }
          let actionResult = ACTION_RESULT_HIGH_BID
          if (item.buyPrice < action.amount) {
+            prevActionId = item.currActionId
             itemUpdate = { 
                buyPrice: action.amount, 
                bidderIds: admin.firestore.FieldValue.arrayUnion(userId),
                currBidderId: userId, 
+               currActionId: action.id,
                lastUserActivityDate: processedDate, 
                dropDoneDate: dropDoneDate,
                status: ITEM_STATUS_DROPPING,
@@ -88,7 +91,17 @@ export class ActionProcessor {
             const timerRef = this.db.collection("timers").doc(itemId)
             log.info("Setting " + timerDesc)
             return timerRef.set({ dropDoneDate: dropDoneDate }).then(() => { 
-               return this.updateAction(action, snapshot, processedDate, actionResult)
+               // update prevActionId to be outbid
+               if (prevActionId && prevActionId.length > 0) {
+                  const prevActionDesc = "previous action[id: " + prevActionId + "]"
+                  const prevActionRef = this.db.collection("actions").doc(prevActionId)
+                  log.info("Updating " + prevActionDesc)
+                  return prevActionRef.update({ actionResult: ACTION_RESULT_OUTBID }).then(() => { 
+                     return this.updateAction(action, snapshot, processedDate, actionResult)
+                  })
+                  .catch(error => { return logError("Error updating " + prevActionDesc, error) })
+               }
+               else { return this.updateAction(action, snapshot, processedDate, actionResult) }
             })
             .catch(error => { return logError("Error setting " + timerDesc, error) })
          })

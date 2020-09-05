@@ -61,7 +61,7 @@ export class TimerProcessor {
             return change.after.ref.delete().then(() => {   
                const subject = "Winning bid"
                const htmlMsg =  
-                  "You are the high bidder on item " + itemLink(item.id, item.name)
+                  "You are the winning bidder on item " + itemLink(item.id, item.name)
                   "<p>You will be contacted with the location of the alley in which to deliver the briefcase full of cash</p>"
                
                return this.emailer.sendEmail(item.currBidderId, subject, htmlMsg)
