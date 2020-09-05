@@ -65,6 +65,7 @@ export class ActionProcessor {
          const dropDoneDate = processedDate + extensionSeconds * 1000
 
          let prevActionId = ''
+         let numberOfBids = item.numberOfBids ? item.numberOfBids + 1 : 1
          let itemUpdate = { }
          let actionResult = ACTION_RESULT_HIGH_BID
          if (item.buyPrice < action.amount) {
@@ -74,13 +75,14 @@ export class ActionProcessor {
                bidderIds: admin.firestore.FieldValue.arrayUnion(userId),
                currBidderId: userId, 
                currActionId: action.id,
+               numberOfBids: numberOfBids, 
                lastUserActivityDate: processedDate, 
                dropDoneDate: dropDoneDate,
                status: ITEM_STATUS_DROPPING,
             }
          }
          else {
-            itemUpdate = { bidderIds: admin.firestore.FieldValue.arrayUnion(action.userId) }
+            itemUpdate = { bidderIds: admin.firestore.FieldValue.arrayUnion(action.userId), numberOfBids: numberOfBids }
             actionResult = ACTION_RESULT_OUTBID
          }
          
