@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { Emailer } from "./Emailer"
 
 const ACTION_TYPE_BID            = 'Bid'
 const ACTION_TYPE_PURCHASE_REQ   = 'Purchase Request'
@@ -17,9 +18,11 @@ const log = functions.logger
 
 export class ActionProcessor {
    db: admin.firestore.Firestore
+   emailer: Emailer
 
-   constructor(db: admin.firestore.Firestore) {
+   constructor(db: admin.firestore.Firestore, emailer: Emailer) {
       this.db = db
+      this.emailer = emailer
    }
 
    processAction(snapshot: any) {
@@ -65,7 +68,7 @@ export class ActionProcessor {
          const dropDoneDate = processedDate + extensionSeconds * 1000
 
          let prevActionId = ''
-         let numberOfBids = item.numberOfBids ? item.numberOfBids + 1 : 1
+         const numberOfBids = item.numberOfBids ? item.numberOfBids + 1 : 1
          let itemUpdate = { }
          let actionResult = ACTION_RESULT_HIGH_BID
          if (item.buyPrice < action.amount) {
@@ -127,6 +130,7 @@ export class ActionProcessor {
          if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
    
          const processedDate = Date.now()
+         const promises = []
          if (item.buyPrice === 0) {
             const itemUpdate = { 
                buyPrice: item.startPrice, 
@@ -136,14 +140,20 @@ export class ActionProcessor {
             }
 
             log.info("Updating " + itemDesc)
-            return itemRef.update(itemUpdate).then(() => { 
-               return this.updateAction(action, snapshot, processedDate, ACTION_RESULT_PURCHASED)
-            })
-            .catch(error => { return logError("Error updating " + itemDesc, error) })
+            promises.push(itemRef.update(itemUpdate).catch(error => { return logError("Error updating " + itemDesc, error) }))         
+            promises.push(this.updateAction(action, snapshot, processedDate, ACTION_RESULT_PURCHASED))
+            const subject = "Purchase Request Successful"
+            const htmlMsg = "Congratulations - you had the first purchase request for ITEM_LINK"
+            promises.push(this.emailer.sendItemEmail(userId, subject, htmlMsg, itemId, item.name)) 
          }
          else { 
-            return this.updateAction(action, snapshot, processedDate, ACTION_RESULT_ALREADY_SOLD)
+            promises.push(this.updateAction(action, snapshot, processedDate, ACTION_RESULT_ALREADY_SOLD))
+            
+            const subject = "Item Already Sold"
+            const htmlMsg = "Unfortunatley, ITEM_LINK has already been sold."
+            promises.push(this.emailer.sendItemEmail(userId, subject, htmlMsg, itemId, item.name)) 
          }
+         return Promise.all(promises)
       })
       .catch(error => { return logError("Error getting " + itemDesc, error) })  
    }

@@ -1,6 +1,8 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 
+const DROPZONE_HREF = "href=http://drop.4th.host/"  
+
 "use strict"
 const log = functions.logger
 
@@ -11,6 +13,13 @@ export class Emailer {
    constructor(db: admin.firestore.Firestore, auth: admin.auth.Auth ) {
       this.db = db
       this.auth = auth
+   }
+
+   async sendItemEmail(userId: string, subject: string, htmlMsg: string, itemId: string, itemName: string) {
+      var regex = /ITEM_LINK/gi; 
+      const itemLink = this.itemLink(itemId, itemName)          
+      const parsedMsg = htmlMsg.replace(regex, itemLink)
+      return this.sendEmail(userId, subject, parsedMsg)
    }
 
    async sendEmail(userId: string, subject: string, htmlMsg: string) {
@@ -28,6 +37,14 @@ export class Emailer {
          .catch(error => { throw logReturnError("Error adding Email", error) })   
       })
       .catch(error => { throw logReturnError("Error getting " + authUserDesc, error) })
+   }
+
+   siteLink(text: string) {
+      return ("<a " + DROPZONE_HREF + ">" + text + "</a>")   
+   }
+
+   itemLink(itemId: string, itemName: string) {
+      return ("<a " + DROPZONE_HREF + "#/item/" + itemId + ">" + itemName + "</a>")   
    }
 }
 

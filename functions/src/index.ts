@@ -9,7 +9,7 @@ import { Emailer } from "./Emailer"
 admin.initializeApp()
 const db = admin.firestore()
 const emailer = new Emailer(db, admin.auth())
-const actionProcessor = new ActionProcessor(db)
+const actionProcessor = new ActionProcessor(db, emailer)
 const timerProcessor = new TimerProcessor(db, emailer)
 const invoiceProcessor = new InvoiceProcessor(db, emailer)
 

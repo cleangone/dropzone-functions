@@ -2,7 +2,6 @@ import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
 
-const DROPZONE_HREF = "href=http://drop.4th.host/"  
 const INVOICE_CREATED = 'Created'
 const INVOICE_UPDATED = 'Updated'
 const INVOICE_SENT = 'Sent'
@@ -17,7 +16,7 @@ export class InvoiceProcessor {
    db: admin.firestore.Firestore
    emailer:Emailer
 
-   constructor(db: admin.firestore.Firestore, emailer:Emailer) {
+   constructor(db: admin.firestore.Firestore, emailer: Emailer) {
       this.db = db
       this.emailer = emailer
    }
@@ -47,7 +46,7 @@ export class InvoiceProcessor {
          }
 
          const subject = invoice.status === INVOICE_CREATED ? "Invoice" : "Updated Invoice"
-         const link = itemId ? itemLink(itemId, itemText) : "<a " + DROPZONE_HREF + ">" + itemText + "</a>"  
+         const link = itemId ? this.emailer.itemLink(itemId, itemText) : this.emailer.siteLink(itemText)
          const htmlMsg = "Here is you invoice for " + link
          
          return this.emailer.sendEmail(invoice.userId, subject, htmlMsg).then(() => {
@@ -81,10 +80,6 @@ export class InvoiceProcessor {
    }
 }
    
-function itemLink(itemId: string, itemName: string) {
-   return ("<a " + DROPZONE_HREF + "#/item/" + itemId + ">" + itemName + "</a>")   
-}
-
 function logError(msg: string, error: any = null) {
    if (error) { log.error(msg, error)}
    else { log.error(msg) }
