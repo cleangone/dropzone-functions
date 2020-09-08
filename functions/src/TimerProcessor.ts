@@ -1,8 +1,9 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
+import { SettingsWrapper } from "./SettingsWrapper"
+import { SettingsGetter } from "./SettingsGetter"
 
-const DROPZONE_HREF = "href=http://drop.4th.host/"  
 const ITEM_STATUS_HOLD = 'On Hold'
 
 "use strict"
@@ -11,13 +12,26 @@ const log = functions.logger
 export class TimerProcessor {
    db: admin.firestore.Firestore
    emailer:Emailer
+   settingsWrapper: SettingsWrapper
+   settingsGetter: SettingsGetter
 
-   constructor(db: admin.firestore.Firestore, emailer:Emailer) {
+   constructor(db: admin.firestore.Firestore, emailer:Emailer, settingsWrapper: SettingsWrapper) {
+      log.info("TimerProcessor.constructor")
       this.db = db
       this.emailer = emailer
+      this.settingsWrapper = settingsWrapper
+      this.settingsGetter = new SettingsGetter(db, settingsWrapper) 
    }
 
    async processTimer(change: any, timerId: string) {
+      log.info("processTimer")
+      if (this.settingsGetter.settingsPromiseExists()) {
+         log.info("waiting for settingsPromise")
+         await(this.settingsGetter.getSettingsPromise())
+         log.info("settingsPromise complete", this.settingsWrapper)
+         this.settingsGetter.resetSettingsPromise()
+      }
+      
       const timerDesc = "timers[id: " + timerId + "]"
       if (!change.after.exists) { 
          log.info(timerDesc + " deleted")
@@ -61,7 +75,7 @@ export class TimerProcessor {
             return change.after.ref.delete().then(() => {   
                const subject = "Winning bid"
                const htmlMsg =  
-                  "You are the winning bidder on item " + itemLink(item.id, item.name)
+                  "You are the winning bidder on item " + this.settingsWrapper.itemLink(item.id, item.name)
                   "<p>You will be contacted with the location of the alley in which to deliver the briefcase full of cash</p>"
                
                return this.emailer.sendEmail(item.currBidderId, subject, htmlMsg)
@@ -76,10 +90,6 @@ export class TimerProcessor {
    
 async function sleep(ms: number) {
    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function itemLink(itemId: string, itemName: string) {
-   return ("<a " + DROPZONE_HREF + "#/item/" + itemId + ">" + itemName + "</a>")   
 }
 
 function logError(msg: string, error: any = null) {

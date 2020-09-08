@@ -1,6 +1,8 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
+import { SettingsWrapper } from "./SettingsWrapper"
+import { SettingsGetter } from "./SettingsGetter"
 
 const ACTION_TYPE_BID            = 'Bid'
 const ACTION_TYPE_PURCHASE_REQ   = 'Purchase Request'
@@ -19,14 +21,26 @@ const log = functions.logger
 export class ActionProcessor {
    db: admin.firestore.Firestore
    emailer: Emailer
+   settingsWrapper: SettingsWrapper
+   settingsGetter: SettingsGetter
 
-   constructor(db: admin.firestore.Firestore, emailer: Emailer) {
+   constructor(db: admin.firestore.Firestore, emailer: Emailer, settingsWrapper: SettingsWrapper) {
+      log.info("ActionProcessor.constructor")
       this.db = db
       this.emailer = emailer
+      this.settingsWrapper = settingsWrapper
+      this.settingsGetter = new SettingsGetter(db, settingsWrapper) 
    }
 
-   processAction(snapshot: any) {
-      log.info("ActionProcessor.processAction")
+   async processAction(snapshot: any) {
+      log.info("processAction")
+      if (this.settingsGetter.settingsPromiseExists()) {
+         log.info("waiting for settingsPromise")
+         await(this.settingsGetter.getSettingsPromise())
+         log.info("settingsPromise complete", this.settingsWrapper)
+         this.settingsGetter.resetSettingsPromise()
+      }
+
       const action = snapshot.data()
       if (!action) { return logError("Action does not exist") }
       
@@ -63,8 +77,7 @@ export class ActionProcessor {
          if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
    
          const processedDate = Date.now()
-         // todo - read drop each time?  tramp data on bid?
-         const extensionSeconds = 30
+         const extensionSeconds = this.settingsWrapper.bidAdditionalSeconds()
          const dropDoneDate = processedDate + extensionSeconds * 1000
 
          let prevActionId = ''

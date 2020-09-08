@@ -1,7 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-
-const DROPZONE_HREF = "href=http://drop.4th.host/"  
+import { SettingsWrapper } from "./SettingsWrapper"
 
 "use strict"
 const log = functions.logger
@@ -9,15 +8,17 @@ const log = functions.logger
 export class Emailer {
    db: admin.firestore.Firestore
    auth: admin.auth.Auth
+   settingsWrapper: SettingsWrapper
 
-   constructor(db: admin.firestore.Firestore, auth: admin.auth.Auth ) {
+   constructor(db: admin.firestore.Firestore, auth: admin.auth.Auth, settingsWrapper: SettingsWrapper) {
       this.db = db
       this.auth = auth
+      this.settingsWrapper = settingsWrapper
    }
 
    async sendItemEmail(userId: string, subject: string, htmlMsg: string, itemId: string, itemName: string) {
-      var regex = /ITEM_LINK/gi; 
-      const itemLink = this.itemLink(itemId, itemName)          
+      const regex = /ITEM_LINK/gi; 
+      const itemLink = this.settingsWrapper.itemLink(itemId, itemName)          
       const parsedMsg = htmlMsg.replace(regex, itemLink)
       return this.sendEmail(userId, subject, parsedMsg)
    }
@@ -30,21 +31,13 @@ export class Emailer {
          log.info("Creating email")
          const email =  { 
             to: [userRecord.email],
-            from: "Dropzone <dropzone@4th.host>",
+            from: this.settingsWrapper.fromEmail(),
             message: { subject: subject, html: htmlMsg }
          }
          return this.db.collection("emails").add(email)
          .catch(error => { throw logReturnError("Error adding Email", error) })   
       })
       .catch(error => { throw logReturnError("Error getting " + authUserDesc, error) })
-   }
-
-   siteLink(text: string) {
-      return ("<a " + DROPZONE_HREF + ">" + text + "</a>")   
-   }
-
-   itemLink(itemId: string, itemName: string) {
-      return ("<a " + DROPZONE_HREF + "#/item/" + itemId + ">" + itemName + "</a>")   
    }
 }
 

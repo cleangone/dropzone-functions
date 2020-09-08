@@ -1,6 +1,8 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
+import { SettingsWrapper } from "./SettingsWrapper"
+import { SettingsGetter } from "./SettingsGetter"
 
 const INVOICE_CREATED = 'Created'
 const INVOICE_UPDATED = 'Updated'
@@ -14,14 +16,27 @@ const log = functions.logger
 
 export class InvoiceProcessor {
    db: admin.firestore.Firestore
-   emailer:Emailer
+   emailer: Emailer
+   settingsWrapper: SettingsWrapper
+   settingsGetter: SettingsGetter
 
-   constructor(db: admin.firestore.Firestore, emailer: Emailer) {
+   constructor(db: admin.firestore.Firestore, emailer: Emailer, settingsWrapper: SettingsWrapper) {
+      log.info("InvoiceProcessor.constructor")
       this.db = db
       this.emailer = emailer
+      this.settingsWrapper = settingsWrapper
+      this.settingsGetter = new SettingsGetter(db, settingsWrapper) 
    }
 
    async processInvoice(change: any, invoiceId: string) {
+      log.info("processInvoice")
+      if (this.settingsGetter.settingsPromiseExists()) {
+         log.info("waiting for settingsPromise")
+         await(this.settingsGetter.getSettingsPromise())
+         log.info("settingsPromise complete", this.settingsWrapper)
+         this.settingsGetter.resetSettingsPromise()
+      }
+      
       const invoiceDesc = "invoices[id: " + invoiceId + "]"
       if (!change.after.exists) { 
          log.info(invoiceDesc + " deleted")
@@ -46,7 +61,7 @@ export class InvoiceProcessor {
          }
 
          const subject = invoice.status === INVOICE_CREATED ? "Invoice" : "Updated Invoice"
-         const link = itemId ? this.emailer.itemLink(itemId, itemText) : this.emailer.siteLink(itemText)
+         const link = itemId ? this.settingsWrapper.itemLink(itemId, itemText) : this.settingsWrapper.siteLink(itemText)
          const htmlMsg = "Here is you invoice for " + link
          
          return this.emailer.sendEmail(invoice.userId, subject, htmlMsg).then(() => {
@@ -63,10 +78,10 @@ export class InvoiceProcessor {
             
             log.info("Updating " + itemDesc)  
             const itemRef = this.db.collection("items").doc(item.id);
-            const promise = itemRef.update({ status: ITEM_STATUS_SOLD } )
+            const itemPromise = itemRef.update({ status: ITEM_STATUS_SOLD } )
             .catch(error => { throw logReturnError("Error updating " + itemDesc, error) })
    
-            promises.push(promise)
+            promises.push(itemPromise)
          }
       
          //return Promise.all(promises).then(arrayOfPromises => {})
