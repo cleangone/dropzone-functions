@@ -105,10 +105,13 @@ export class ActionProcessor {
          log.info("Updating " + itemDesc)
          return itemRef.update(itemUpdate).then(() => { 
             // set timer
-            const timerDesc = "timers[id: " + itemId + "]"
-            const timerRef = this.db.collection("timers").doc(itemId)
+            const timerId = "i-" + itemId
+            const timerDesc = "timers[id: " + timerId + "]"
+            
+            const timerRef = this.db.collection("timers").doc(timerId)
             log.info("Setting " + timerDesc)
-            return timerRef.set({ dropDoneDate: dropDoneDate }).then(() => { 
+            const timer = { id: timerId, itemId: itemId, expireDate: dropDoneDate }
+            return timerRef.set(timer).then(() => { 
                // update prevActionId to be outbid
                if (prevActionId && prevActionId.length > 0) {
                   const prevActionDesc = "previous action[id: " + prevActionId + "]"

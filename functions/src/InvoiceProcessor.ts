@@ -3,11 +3,13 @@ import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
+import { Log } from "./Log"
 
 const INVOICE_CREATED = 'Created'
 const INVOICE_UPDATED = 'Updated'
 const INVOICE_SENT = 'Sent'
 const INVOICE_PAID = 'Paid'
+const INVOICE_SHIPPED = 'Shipped'
 
 const ITEM_STATUS_SOLD = 'Sold'
 
@@ -19,6 +21,7 @@ export class InvoiceProcessor {
    emailer: Emailer
    settingsWrapper: SettingsWrapper
    settingsGetter: SettingsGetter
+   log = new Log()
 
    constructor(db: admin.firestore.Firestore, emailer: Emailer, settingsWrapper: SettingsWrapper) {
       log.info("InvoiceProcessor.constructor")
@@ -29,7 +32,7 @@ export class InvoiceProcessor {
    }
 
    async processInvoice(change: any, invoiceId: string) {
-      log.info("processInvoice")
+      // log.info("processInvoice")
       if (this.settingsGetter.settingsPromiseExists()) {
          log.info("waiting for settingsPromise")
          await(this.settingsGetter.getSettingsPromise())
@@ -44,10 +47,9 @@ export class InvoiceProcessor {
       }
 
       const invoice = change.after.data()
-      if (!invoice) { return logError(invoiceDesc + " data does not exist") }
+      if (!invoice) { return this.log.error(invoiceDesc + " data does not exist") }
 
-      if (invoice.status === INVOICE_SENT) { return null }      
-      else if (invoice.status === INVOICE_CREATED || invoice.status === INVOICE_UPDATED) {
+      if (invoice.status === INVOICE_CREATED || invoice.status === INVOICE_UPDATED) {
          // send email and set status to Sent
          let itemText = ''
          let itemId = null
@@ -69,7 +71,7 @@ export class InvoiceProcessor {
             // todo - do we want to record multiple dates if resent - do through actions
             return change.after.ref.update({ status: INVOICE_SENT, sentDate: Date.now() })
          })
-         .catch(error => { return logError("Error sending Email", error) }) 
+         .catch(error => { return this.log.error("Error sending Email", error) }) 
       } 
       else if (invoice.status === INVOICE_PAID) {
          const promises = []
@@ -87,19 +89,16 @@ export class InvoiceProcessor {
          //return Promise.all(promises).then(arrayOfPromises => {})
          return Promise.all(promises)
       }
+      else if (invoice.status === INVOICE_SHIPPED) {
+         // send email - may want to look at before to see if this is a change
+         return null
+      }
       else { 
          // new status is Shipped - no-op
          // todo - should we check if old status was Paid? Not no-op if old status was Sent
          return null
       }
    }
-}
-   
-function logError(msg: string, error: any = null) {
-   if (error) { log.error(msg, error)}
-   else { log.error(msg) }
-
-   return null
 }
 
 function logReturnError(msg: string, error: any) {

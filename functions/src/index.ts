@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { ActionProcessor } from "./ActionProcessor"
+import { DropProcessor } from "./DropProcessor"
 import { InvoiceProcessor } from "./InvoiceProcessor"
 import { TimerProcessor } from "./TimerProcessor"
 import { Emailer } from "./Emailer"
@@ -13,8 +14,9 @@ const settingsWrapper = new SettingsWrapper()
 const emailer = new Emailer(db, admin.auth(), settingsWrapper)
 // lazy instantiation because each function has a sep instance of each global var
 let actionProcessor:ActionProcessor
-let timerProcessor:TimerProcessor
+let dropProcessor:DropProcessor
 let invoiceProcessor:InvoiceProcessor
+let timerProcessor:TimerProcessor
 
 export const processAction = functions.firestore
    .document('actions/{id}')
@@ -23,16 +25,23 @@ export const processAction = functions.firestore
       return actionProcessor.processAction(snapshot)
 })
 
-export const processTimer = functions.firestore
-   .document('timers/{id}')
-   .onWrite(async (change, context) => {
-      if (!timerProcessor) { timerProcessor = new TimerProcessor(db, emailer, settingsWrapper) }
-      return timerProcessor.processTimer(change, context.params.id)
+export const processDrop = functions.firestore
+   .document('drops/{id}')
+   .onWrite((change, context) => {
+      if (!dropProcessor) { dropProcessor = new DropProcessor(db) }
+      return dropProcessor.processDrop(change, context.params.id)
 })
 
 export const processInvoice = functions.firestore
    .document('invoices/{id}')
    .onWrite((change, context) => {
       if (!invoiceProcessor) { invoiceProcessor = new InvoiceProcessor(db, emailer, settingsWrapper) }
-      return invoiceProcessor.processInvoice(change, context.params.invoiceId)
+      return invoiceProcessor.processInvoice(change, context.params.id)
+})
+
+export const processTimer = functions.firestore
+   .document('timers/{id}')
+   .onWrite(async (change, context) => {
+      if (!timerProcessor) { timerProcessor = new TimerProcessor(db, emailer, settingsWrapper) }
+      return timerProcessor.processTimer(change, context.params.id)
 })

@@ -4,10 +4,19 @@ import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
 
+const DROP_STATUS_LIVE = 'Live'
 const ITEM_STATUS_HOLD = 'On Hold'
 
 "use strict"
 const log = functions.logger
+
+/*
+   timer:
+      id - ("i-" + itemId) or ("d-" + dropId) for viewing in console
+      itemId or dropId
+      expireDate
+      remainingSeconds - changing this field is what drives the function 
+*/
 
 export class TimerProcessor {
    db: admin.firestore.Firestore
@@ -42,24 +51,38 @@ export class TimerProcessor {
       if (!timer) { return logError(timerDesc + " data does not exist") }
 
       const nowTime = (new Date()).getTime();
-      const dropDoneDate = timer.dropDoneDate;
-      if (dropDoneDate < nowTime) { 
+      const expireDate = timer.expireDate;
+      if (expireDate < nowTime) { 
          log.info(timerDesc + " expired") 
-         return this.updateItem(change, timerId)
+         if (timer.itemId) { return this.updateItem(change, timer) }
+         else if (timer.dropId) { return this.updateDrop(change, timer) }
+         else { return logError(timerDesc + " does not have itemId or dropId") }
       }
       else {
-         let remainingSeconds = Math.floor((dropDoneDate - nowTime)/1000)
+         let remainingSeconds = Math.floor((expireDate - nowTime)/1000)
          const sleepTime = remainingSeconds > 10 ? 2000 : 1000
          await sleep(sleepTime)
-         remainingSeconds = Math.floor((dropDoneDate - nowTime)/1000)
+         remainingSeconds = Math.floor((expireDate - nowTime)/1000)
          return change.after.ref.update({ remainingSeconds: remainingSeconds })
       }
    }
 
-   async updateItem(change: any, timerId: string) {
-      const itemId = timerId
-      const itemDesc = "items[id: " + itemId + "]"
-      const itemRef = this.db.collection("items").doc(itemId);
+   async updateDrop(change: any, timer: any) {
+      const dropDesc = "drops[id: " + timer.dropId + "]"
+      const dropRef = this.db.collection("drops").doc(timer.dropId);
+   
+      log.info("Updating " + dropDesc)
+      return dropRef.update({ status: DROP_STATUS_LIVE } ).then(() => {  
+         const timerDesc = "timers[id: " + timer.id + "]"
+         console.log("Deleting " + timerDesc) 
+         return change.after.ref.delete()
+      })
+      .catch(error => { return logError("Error getting " + dropDesc, error) })
+   }
+
+   async updateItem(change: any, timer: any) {
+      const itemDesc = "items[id: " + timer.itemId + "]"
+      const itemRef = this.db.collection("items").doc(timer.itemId);
    
       log.info("Getting " + itemDesc)
       return itemRef.get().then(doc => {
@@ -70,7 +93,7 @@ export class TimerProcessor {
          log.info("Updating " + itemDesc)
          const itemUpdate = { status: ITEM_STATUS_HOLD, buyerId: item.currBidderId }               
          return itemRef.update(itemUpdate).then(() => {        
-            const timerDesc = "timers[id: " + timerId + "]"
+            const timerDesc = "timers[id: " + timer.id + "]"
             console.log("Deleting " + timerDesc) 
             return change.after.ref.delete().then(() => {   
                const subject = "Winning bid"
