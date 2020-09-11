@@ -13,7 +13,10 @@ const ACTION_RESULT_PURCHASED    = 'Purchased'
 const ACTION_RESULT_ALREADY_SOLD = 'Already Sold'
 
 const ITEM_STATUS_DROPPING = 'Dropping'
-const ITEM_STATUS_HOLD = 'On Hold'
+const ITEM_STATUS_HOLD     = 'On Hold'
+
+const EMAIL_PURCHASE_SUCCESS = 'emailPurchaseSuccess'
+const EMAIL_PURCHASE_FAIL    = 'emailPurchaseFail'
 
 "use strict"
 const log = functions.logger
@@ -158,16 +161,11 @@ export class ActionProcessor {
             log.info("Updating " + itemDesc)
             promises.push(itemRef.update(itemUpdate).catch(error => { return logError("Error updating " + itemDesc, error) }))         
             promises.push(this.updateAction(action, snapshot, processedDate, ACTION_RESULT_PURCHASED))
-            const subject = "Purchase Request Successful"
-            const htmlMsg = "Congratulations - you had the first purchase request for ITEM_LINK"
-            promises.push(this.emailer.sendItemEmail(userId, subject, htmlMsg, itemId, item.name)) 
+            promises.push(this.emailer.sendConfiguredEmail(userId, EMAIL_PURCHASE_SUCCESS, itemId, item.name)) 
          }
          else { 
             promises.push(this.updateAction(action, snapshot, processedDate, ACTION_RESULT_ALREADY_SOLD))
-            
-            const subject = "Item Already Sold"
-            const htmlMsg = "Unfortunatley, ITEM_LINK has already been sold."
-            promises.push(this.emailer.sendItemEmail(userId, subject, htmlMsg, itemId, item.name)) 
+            promises.push(this.emailer.sendConfiguredEmail(userId, EMAIL_PURCHASE_FAIL, itemId, item.name)) 
          }
          return Promise.all(promises)
       })

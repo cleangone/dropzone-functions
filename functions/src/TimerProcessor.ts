@@ -7,6 +7,8 @@ import { SettingsGetter } from "./SettingsGetter"
 const DROP_STATUS_LIVE = 'Live'
 const ITEM_STATUS_HOLD = 'On Hold'
 
+const EMAIL_WINNING_BID = 'winningBid'
+
 "use strict"
 const log = functions.logger
 
@@ -96,12 +98,7 @@ export class TimerProcessor {
             const timerDesc = "timers[id: " + timer.id + "]"
             console.log("Deleting " + timerDesc) 
             return change.after.ref.delete().then(() => {   
-               const subject = "Winning bid"
-               const htmlMsg =  
-                  "You are the winning bidder on item " + this.settingsWrapper.itemLink(item.id, item.name)
-                  "<p>You will be contacted with the location of the alley in which to deliver the briefcase full of cash</p>"
-               
-               return this.emailer.sendEmail(item.currBidderId, subject, htmlMsg)
+               return this.emailer.sendConfiguredEmail(item.currBidderId, EMAIL_WINNING_BID, item.id, item.name)
                .catch(error => { return logError("Error sending Email", error) }) 
             })
          })

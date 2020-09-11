@@ -16,11 +16,19 @@ export class Emailer {
       this.settingsWrapper = settingsWrapper
    }
 
+   async sendConfiguredEmail(userId: string, field: string, itemId: string, itemName: string) {
+      const subject = this.settingsWrapper.emailSubject(field)          
+      const body    = this.settingsWrapper.emailBody(field)            
+      return this.sendItemEmail(userId, subject, body, itemId, itemName) 
+   }
+
    async sendItemEmail(userId: string, subject: string, htmlMsg: string, itemId: string, itemName: string) {
-      const regex = /ITEM_LINK/gi; 
+      const linkRegex = /ITEM_LINK/gi; 
+      const nameRegex = /ITEM_NAME/gi; 
       const itemLink = this.settingsWrapper.itemLink(itemId, itemName)          
-      const parsedMsg = htmlMsg.replace(regex, itemLink)
-      return this.sendEmail(userId, subject, parsedMsg)
+      const parsedSubject = subject.replace(nameRegex, itemName)
+      const parsedMsg = htmlMsg.replace(linkRegex, itemLink).replace(nameRegex, itemName)
+      return this.sendEmail(userId, parsedSubject, parsedMsg)
    }
 
    async sendEmail(userId: string, subject: string, htmlMsg: string) {
@@ -31,7 +39,7 @@ export class Emailer {
          log.info("Creating email")
          const email =  { 
             to: [userRecord.email],
-            from: this.settingsWrapper.fromEmail(),
+            from: this.settingsWrapper.fromEmailAddress(),
             message: { subject: subject, html: htmlMsg }
          }
          return this.db.collection("emails").add(email)

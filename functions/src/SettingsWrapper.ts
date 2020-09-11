@@ -1,5 +1,8 @@
 "use strict"
 
+const EMAIL_SUBJECT_SUFFIX = 'Subject'
+const EMAIL_BODY_SUFFIX =    'Body'
+
 export class SettingsWrapper {
    settings: any  
    
@@ -13,7 +16,10 @@ export class SettingsWrapper {
 
    setSettings(settings: any) { this.settings = settings }
 
-   fromEmail() { return this.settings.fromEmail }
+   fromEmailAddress() { return this.settings.fromEmail }
+   emailSubject(field: string) { return this.settings[field + EMAIL_SUBJECT_SUFFIX] }
+   emailBody(field: string)    { return this.settings[field + EMAIL_BODY_SUFFIX] }
+
    siteLink(text: string) { return this.anchor(text) }
    itemLink(itemId: string, itemName: string) { return this.anchor(itemName, "#/item/" + itemId) }
    bidAdditionalSeconds() { return this.settings.bidAdditionalTime }
