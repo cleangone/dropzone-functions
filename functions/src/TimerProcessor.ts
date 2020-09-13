@@ -7,6 +7,7 @@ import { SettingsGetter } from "./SettingsGetter"
 const DROP_STATUS_LIVE = 'Live'
 const ITEM_STATUS_HOLD = 'On Hold'
 
+// const ACTION_TYPE_WINNING_BID = 'Winning Bid'
 const EMAIL_WINNING_BID = 'winningBid'
 
 "use strict"
