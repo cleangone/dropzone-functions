@@ -21,9 +21,6 @@ const EMAIL_PURCHASE_SUCCESS = 'emailPurchaseSuccess'
 const EMAIL_PURCHASE_FAIL    = 'emailPurchaseFail'
 
 "use strict"
-
-// note: add following to tsconfig.json
-// "strictPropertyInitialization": false,
 const log = functions.logger
 
 export class ActionProcessor {
@@ -89,10 +86,10 @@ export class ActionProcessor {
          processingState = "Generating bidResults for " + itemDesc
          const processedDate = Date.now()
          const extensionSeconds = this.settingsWrapper.bidAdditionalSeconds()
-         let dropDoneDate = processedDate + extensionSeconds * 1000
+         const dropDoneDate = processedDate + extensionSeconds * 1000
          const numberOfBids = item.numberOfBids ? item.numberOfBids + 1 : 1
          
-         let bidResult = new BidResult()
+         const bidResult = new BidResult()
          if (item.buyPrice === 0) {
             // first bidder
             if (action.amount >= item.startPrice) {
@@ -241,7 +238,6 @@ export class ActionProcessor {
 
 function desc(action:any) { return "actions[id: " + action.id + ", actionType: " + action.actionType + "]" }     
    
-
 function logError(msg: string, error: any = null) {
    if (error) { log.error(msg, error)}
    else { log.error(msg) }

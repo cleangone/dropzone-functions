@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
+import { uuid } from 'uuidv4'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
@@ -7,7 +8,8 @@ import { SettingsGetter } from "./SettingsGetter"
 const DROP_STATUS_LIVE = 'Live'
 const ITEM_STATUS_HOLD = 'On Hold'
 
-// const ACTION_TYPE_WINNING_BID = 'Winning Bid'
+const ACTION_STATUS_CREATED = 'Created'
+const ACTION_TYPE_WINNING_BID = 'Winning Bid'
 const EMAIL_WINNING_BID = 'winningBid'
 
 "use strict"
@@ -84,33 +86,54 @@ export class TimerProcessor {
    }
 
    async updateItem(change: any, timer: any) {
-      const itemDesc = "items[id: " + timer.itemId + "]"
+      const itemDesc = "item[id: " + timer.itemId + "]"
+      let processingState = logInfo("Getting " + itemDesc)
+      
       const itemRef = this.db.collection("items").doc(timer.itemId);
-   
-      log.info("Getting " + itemDesc)
       return itemRef.get().then(doc => {
          if (!doc.exists) { return logError("Doc does not exist for " + itemDesc) }
          const item = doc.data()
          if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
     
-         log.info("Updating " + itemDesc)
-         const itemUpdate = { status: ITEM_STATUS_HOLD, buyerId: item.currBidderId }               
-         return itemRef.update(itemUpdate).then(() => {        
-            const timerDesc = "timers[id: " + timer.id + "]"
-            console.log("Deleting " + timerDesc) 
-            return change.after.ref.delete().then(() => {   
-               return this.emailer.sendConfiguredEmail(item.currBidderId, EMAIL_WINNING_BID, item.id, item.name)
-               .catch(error => { return logError("Error sending Email", error) }) 
-            })
-         })
-         .catch(error => { return logError("Error updating " + itemDesc, error) })
+         const promises = [] 
+         
+         processingState = logInfo("Updating " + itemDesc)
+         promises.push(itemRef.update({ status: ITEM_STATUS_HOLD, buyerId: item.currBidderId }))
+         
+         processingState = logInfo("Creating action[type: " + ACTION_TYPE_WINNING_BID +"]")
+         const actionId = uuid()
+         const action = { 
+            id: actionId,
+            actionType: ACTION_TYPE_WINNING_BID,
+            createdDate: Date.now(),
+            status: ACTION_STATUS_CREATED,
+            userId: item.currBidderId,
+            itemId: item.id,
+            itemName: item.name,
+            amount: item.buyPrice 
+         }
+         const actionRef = this.db.collection("actions").doc(actionId)
+         promises.push(actionRef.set(action))
+         
+         processingState = "Sending email"
+         promises.push(this.emailer.sendConfiguredEmail(item.currBidderId, EMAIL_WINNING_BID, item.id, item.name))
+         
+         processingState = logInfo("Deleting timer[id: " + timer.id + "]")
+         promises.push(change.after.ref.delete())
+
+         return Promise.all(promises)
       })
-      .catch(error => { return logError("Error getting " + itemDesc, error) })
+      .catch(error => { return logError("Error in " + processingState, error) })
    }
 }
    
 async function sleep(ms: number) {
    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function logInfo(msg: string) {
+   log.info(msg)
+   return msg
 }
 
 function logError(msg: string, error: any = null) {
