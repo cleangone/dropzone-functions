@@ -3,15 +3,8 @@ import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
+import { Invoice, Item } from "./Models"
 import { Log } from "./Log"
-
-const INVOICE_CREATED = 'Created'
-const INVOICE_UPDATED = 'Updated'
-const INVOICE_SENT = 'Sent'
-const INVOICE_PAID = 'Paid'
-const INVOICE_SHIPPED = 'Shipped'
-
-const ITEM_STATUS_SOLD = 'Sold'
 
 "use strict"
 const log = functions.logger
@@ -49,7 +42,7 @@ export class InvoiceProcessor {
       const invoice = change.after.data()
       if (!invoice) { return this.log.error(invoiceDesc + " data does not exist") }
 
-      if (invoice.status === INVOICE_CREATED || invoice.status === INVOICE_UPDATED) {
+      if (Invoice.isCreated(invoice) || Invoice.isUpdated(invoice)) {
          // send email and set status to Sent
          let itemText = ''
          let itemId = null
@@ -62,25 +55,25 @@ export class InvoiceProcessor {
             itemText += item.name
          }
 
-         const subject = invoice.status === INVOICE_CREATED ? "Invoice" : "Updated Invoice"
+         const subject = Invoice.isCreated(invoice) ? "Invoice" : "Updated Invoice"
          const link = itemId ? this.settingsWrapper.itemLink(itemId, itemText) : this.settingsWrapper.siteLink(itemText)
          const htmlMsg = "Here is you invoice for " + link
          
          return this.emailer.sendEmail(invoice.userId, subject, htmlMsg).then(() => {
             console.log("Updating invoice " + invoiceDesc)
             // todo - do we want to record multiple dates if resent - do through actions
-            return change.after.ref.update({ status: INVOICE_SENT, sentDate: Date.now() })
+            return change.after.ref.update({ status: Invoice.STATUS_SENT, sentDate: Date.now() })
          })
          .catch(error => { return this.log.error("Error sending Email", error) }) 
       } 
-      else if (invoice.status === INVOICE_PAID) {
+      else if (Invoice.isPaid(invoice)) {
          const promises = []
          for (const item of invoice.items) {
             const itemDesc = "items[id: " + item.id + "]"
             
             log.info("Updating " + itemDesc)  
             const itemRef = this.db.collection("items").doc(item.id);
-            const itemPromise = itemRef.update({ status: ITEM_STATUS_SOLD } )
+            const itemPromise = itemRef.update({ status: Item.STATUS_SOLD } )
             .catch(error => { throw logReturnError("Error updating " + itemDesc, error) })
    
             promises.push(itemPromise)
@@ -89,7 +82,7 @@ export class InvoiceProcessor {
          //return Promise.all(promises).then(arrayOfPromises => {})
          return Promise.all(promises)
       }
-      else if (invoice.status === INVOICE_SHIPPED) {
+      else if (Invoice.isShipped(invoice)) {
          // send email - may want to look at before to see if this is a change
          return null
       }

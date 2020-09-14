@@ -1,10 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
-
-const DROP_STATUS_SCHEDULE  = 'Schedule'
-const DROP_STATUS_SCHEDULED = 'Scheduled'
-const DROP_STATUS_STARTUP   = 'Start Countdown'
-const DROP_STATUS_COUNTDOWN = 'Countdown'
+import { Drop } from "./Models"
 
 "use strict"
 const log = functions.logger
@@ -26,10 +22,10 @@ export class DropProcessor {
       
       dropDesc = "drops[id: " + dropId + ", status: " + drop.status + "]"
       log.info("Processing " + dropDesc)
-      if (drop.status === DROP_STATUS_SCHEDULE) {
-         return change.after.ref.update({ status: DROP_STATUS_SCHEDULED })
+      if (Drop.isSchedule(drop)) {
+         return change.after.ref.update({ status: Drop.STATUS_SCHEDULED })
       }
-      else if (drop.status === DROP_STATUS_STARTUP) {
+      else if (Drop.isStartup(drop)) {
          const timerId = "d-" + drop.id
          const timerDesc = "timers[id: " + timerId + "]"
          
@@ -39,7 +35,7 @@ export class DropProcessor {
          // let seconds = drop.startDate.seconds
          const timer = { id: timerId, dropId: drop.id, expireDate: drop.startDate.seconds * 1000 }
          return timerRef.set(timer).then(() => { 
-            return change.after.ref.update({ status: DROP_STATUS_COUNTDOWN })
+            return change.after.ref.update({ status: Drop.STATUS_COUNTDOWN })
          })
          .catch(error => { return logError("Error setting " + timerDesc, error) })
       }

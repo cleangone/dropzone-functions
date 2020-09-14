@@ -3,22 +3,7 @@ import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
-
-const ACTION_TYPE_BID            = 'Bid'
-const ACTION_TYPE_PURCHASE_REQ   = 'Purchase Request'
-
-const ACTION_STATUS_PROCESSED    = 'Processed'
-const ACTION_RESULT_HIGH_BID     = 'High Bid'
-const ACTION_RESULT_INCREASED    = 'Increased'
-const ACTION_RESULT_OUTBID       = 'Outbid'
-const ACTION_RESULT_PURCHASED    = 'Purchased'
-const ACTION_RESULT_ALREADY_SOLD = 'Already Sold'
-
-const ITEM_STATUS_DROPPING = 'Dropping'
-const ITEM_STATUS_HOLD     = 'On Hold'
-
-const EMAIL_PURCHASE_SUCCESS = 'emailPurchaseSuccess'
-const EMAIL_PURCHASE_FAIL    = 'emailPurchaseFail'
+import { Action, Email, Item  } from "./Models"
 
 "use strict"
 const log = functions.logger
@@ -49,16 +34,20 @@ export class ActionProcessor {
       const action = snapshot.data()
       if (!action) { return logError("Action does not exist") }
       
-      if (action.actionType === ACTION_TYPE_BID || action.actionType === ACTION_TYPE_PURCHASE_REQ) {
+      if (Action.isBid(action) || Action.isPurchaseRequest(action)) {
          if (!action.itemId) { return logError("action.itemId does not exist") }
          if (!action.userId) { return logError("action.userId does not exist") }
       }
 
       log.info("Processing " + desc(action))
-      if (action.actionType === ACTION_TYPE_BID) {
+      if (Action.isWinningBid(action)) { 
+         log.info("Bypassing winning bid" + desc(action)) 
+         return null
+      }
+      else if (Action.isBid(action)) {  
          return this.processBid(action, snapshot)
       }
-      else if (action.actionType === ACTION_TYPE_PURCHASE_REQ) {
+      else if (Action.isPurchaseRequest(action)) {
          return this.processPurchaseRequest(action, snapshot)
       }
       else {
@@ -102,7 +91,7 @@ export class ActionProcessor {
                   numberOfBids: numberOfBids, 
                   lastUserActivityDate: processedDate, 
                   dropDoneDate: dropDoneDate,
-                  status: ITEM_STATUS_DROPPING,
+                  status: Item.STATUS_DROPPING,
                }
                bidResult.firstBid(itemUpdate, dropDoneDate) 
             }
@@ -212,17 +201,17 @@ export class ActionProcessor {
                buyPrice: item.startPrice, 
                buyerId: userId, 
                lastUserActivityDate: processedDate, 
-               status: ITEM_STATUS_HOLD
+               status: Item.STATUS_HOLD
             }
 
             log.info("Updating " + itemDesc)
             promises.push(itemRef.update(itemUpdate).catch(error => { return logError("Error updating " + itemDesc, error) }))         
-            promises.push(this.updateAction(action, snapshot, processedDate, ACTION_RESULT_PURCHASED))
-            promises.push(this.emailer.sendConfiguredEmail(userId, EMAIL_PURCHASE_SUCCESS, itemId, item.name)) 
+            promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_PURCHASED))
+            promises.push(this.emailer.sendConfiguredEmail(userId, Email.PURCHASE_SUCCESS, itemId, item.name)) 
          }
          else { 
-            promises.push(this.updateAction(action, snapshot, processedDate, ACTION_RESULT_ALREADY_SOLD))
-            promises.push(this.emailer.sendConfiguredEmail(userId, EMAIL_PURCHASE_FAIL, itemId, item.name)) 
+            promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_ALREADY_SOLD))
+            promises.push(this.emailer.sendConfiguredEmail(userId, Email.PURCHASE_FAIL, itemId, item.name)) 
          }
          return Promise.all(promises)
       })
@@ -232,7 +221,7 @@ export class ActionProcessor {
    updateAction(action:any, snapshot:any, processedDate:any, actionResult:string) { 
       console.log("Updating " + desc(action))
       return snapshot.ref.update({ 
-         status: ACTION_STATUS_PROCESSED, processedDate: processedDate, actionResult: actionResult })
+         status: Action.STATUS_PROCESSED, processedDate: processedDate, actionResult: actionResult })
    }  
 }
 
@@ -253,28 +242,28 @@ class BidResult {
    prevActionResult: string
    
    firstBid(itemUpdate: any, timerExpireDate: number) {
-      this.actionResult = ACTION_RESULT_HIGH_BID
+      this.actionResult = Action.RESULT_HIGH_BID
       this.itemUpdate = itemUpdate
       this.timerExpireDate = timerExpireDate
    }
 
    highBid(itemUpdate: any, timerExpireDate: number, prevActionId: string) {
-      this.actionResult = ACTION_RESULT_HIGH_BID
+      this.actionResult = Action.RESULT_HIGH_BID
       this.itemUpdate = itemUpdate
       this.timerExpireDate = timerExpireDate
       this.prevActionId = prevActionId
-      this.prevActionResult = ACTION_RESULT_OUTBID
+      this.prevActionResult = Action.RESULT_OUTBID
    }
 
    highBidIncreased(itemUpdate: any, prevActionId: string) {
-      this.actionResult = ACTION_RESULT_HIGH_BID
+      this.actionResult = Action.RESULT_HIGH_BID
       this.itemUpdate = itemUpdate
       this.prevActionId = prevActionId
-      this.prevActionResult = ACTION_RESULT_INCREASED
+      this.prevActionResult = Action.RESULT_INCREASED
    }
 
    outbid(itemUpdate: any, timerExpireDate: number) {
-      this.actionResult = ACTION_RESULT_OUTBID
+      this.actionResult = Action.RESULT_OUTBID
       this.itemUpdate = itemUpdate
       this.timerExpireDate = timerExpireDate
    }

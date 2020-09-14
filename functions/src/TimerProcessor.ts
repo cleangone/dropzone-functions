@@ -4,13 +4,7 @@ import { uuid } from 'uuidv4'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
-
-const DROP_STATUS_LIVE = 'Live'
-const ITEM_STATUS_HOLD = 'On Hold'
-
-const ACTION_STATUS_CREATED = 'Created'
-const ACTION_TYPE_WINNING_BID = 'Winning Bid'
-const EMAIL_WINNING_BID = 'winningBid'
+import { Action, Drop, Email, Item  } from "./Models"
 
 "use strict"
 const log = functions.logger
@@ -77,7 +71,7 @@ export class TimerProcessor {
       const dropRef = this.db.collection("drops").doc(timer.dropId);
    
       log.info("Updating " + dropDesc)
-      return dropRef.update({ status: DROP_STATUS_LIVE } ).then(() => {  
+      return dropRef.update({ status: Drop.STATUS_LIVE } ).then(() => {  
          const timerDesc = "timers[id: " + timer.id + "]"
          console.log("Deleting " + timerDesc) 
          return change.after.ref.delete()
@@ -98,15 +92,16 @@ export class TimerProcessor {
          const promises = [] 
          
          processingState = logInfo("Updating " + itemDesc)
-         promises.push(itemRef.update({ status: ITEM_STATUS_HOLD, buyerId: item.currBidderId }))
+         promises.push(itemRef.update({ status: Item.STATUS_HOLD, buyerId: item.currBidderId }))
          
-         processingState = logInfo("Creating action[type: " + ACTION_TYPE_WINNING_BID +"]")
+         processingState = logInfo("Creating winning bid action")
          const actionId = uuid()
          const action = { 
             id: actionId,
-            actionType: ACTION_TYPE_WINNING_BID,
+            actionType: Action.TYPE_BID,
+            actionResult: Action.RESULT_WINNING_BID,
             createdDate: Date.now(),
-            status: ACTION_STATUS_CREATED,
+            status: Action.STATUS_CREATED,
             userId: item.currBidderId,
             itemId: item.id,
             itemName: item.name,
@@ -116,7 +111,7 @@ export class TimerProcessor {
          promises.push(actionRef.set(action))
          
          processingState = "Sending email"
-         promises.push(this.emailer.sendConfiguredEmail(item.currBidderId, EMAIL_WINNING_BID, item.id, item.name))
+         promises.push(this.emailer.sendConfiguredEmail(item.currBidderId, Email.WINNING_BID, item.id, item.name))
          
          processingState = logInfo("Deleting timer[id: " + timer.id + "]")
          promises.push(change.after.ref.delete())
