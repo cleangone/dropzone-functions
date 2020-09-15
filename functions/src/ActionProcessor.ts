@@ -64,15 +64,14 @@ export class ActionProcessor {
       
       const itemDesc = "items[id: " + itemId + "]"
       log.info("Processing bid on " + itemDesc)
-      let processingState = "Getting " + itemDesc
-      log.info(processingState)
+      let processingState = logInfo("Getting " + itemDesc)
       const itemRef = this.db.collection("items").doc(itemId);
       return itemRef.get().then(doc => {
          if (!doc.exists) { return logError("Doc does not exist for " + itemDesc) }
          const item = doc.data()
          if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
    
-         processingState = "Generating bidResults for " + itemDesc
+         processingState = logInfo("Generating bidResults for " + itemDesc)
          const processedDate = Date.now()
          const extensionSeconds = this.settingsWrapper.bidAdditionalSeconds()
          const dropDoneDate = processedDate + extensionSeconds * 1000
@@ -142,19 +141,17 @@ export class ActionProcessor {
             bidResult.outbid(itemUpdate, dropDoneDate) 
          }
          
-         const promises = []
-            
+         const promises = []            
          if (bidResult.itemUpdate) {
-            processingState = "Updating " + itemDesc
-            log.info(processingState)
+            processingState = logInfo("Updating " + itemDesc)
             promises.push(itemRef.update(bidResult.itemUpdate))
          }
+         else { log.info("WARN: Bid on " + itemDesc + " did not result in an itemUpdate") }
 
          // set timer 
          if (bidResult.timerExpireDate) {
             const timerId = "i-" + itemId
-            processingState = "Setting timer[id: " + timerId + "]"
-            log.info(processingState)
+            processingState = logInfo("Setting timer[id: " + timerId + "]")
             const timerRef = this.db.collection("timers").doc(timerId)
             const timer = { id: timerId, itemId: itemId, expireDate: bidResult.timerExpireDate }
             promises.push(timerRef.set(timer))
@@ -162,16 +159,14 @@ export class ActionProcessor {
 
          // update previous Action
          if (bidResult.prevActionId) {
-            processingState = " Updating previous action[id: " + bidResult.prevActionId + "]"
-            log.info(processingState)
+            processingState = logInfo("Updating previous action[id: " + bidResult.prevActionId + "]")
             const prevActionRef = this.db.collection("actions").doc(bidResult.prevActionId)
             promises.push(prevActionRef.update({ actionResult: bidResult.prevActionResult }))
          }
             
          // update this action
          if (bidResult.actionResult) {
-            processingState = "Updating snapshot action"
-            log.info(processingState)
+            processingState = logInfo("Updating snapshot action")
             promises.push(this.updateAction(action, snapshot, processedDate, bidResult.actionResult))
          }
 
@@ -227,6 +222,11 @@ export class ActionProcessor {
 
 function desc(action:any) { return "actions[id: " + action.id + ", actionType: " + action.actionType + "]" }     
    
+function logInfo(msg: string) {
+   log.info(msg)
+   return msg
+}
+
 function logError(msg: string, error: any = null) {
    if (error) { log.error(msg, error)}
    else { log.error(msg) }

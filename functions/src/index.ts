@@ -6,6 +6,7 @@ import { InvoiceProcessor } from "./InvoiceProcessor"
 import { TimerProcessor } from "./TimerProcessor"
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
+import { DropPayload } from "./DropPayload"
 
 "use strict"
 admin.initializeApp()
@@ -30,6 +31,20 @@ export const processDrop = functions.firestore
    .onWrite((change, context) => {
       if (!dropProcessor) { dropProcessor = new DropProcessor(db) }
       return dropProcessor.processDrop(change, context.params.id)
+})
+
+export const startDropCountdown = functions.https
+   .onRequest(async (req, response) => {
+      if (!dropProcessor) { dropProcessor = new DropProcessor(db) }
+      const dropPayload = req.body as DropPayload
+      try {
+         await dropProcessor.startCountdown(dropPayload)
+         response.sendStatus(200)
+      }
+      catch (error) {
+         console.error(error)
+         response.status(500).send(error)
+      }
 })
 
 export const processInvoice = functions.firestore

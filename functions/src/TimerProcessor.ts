@@ -54,7 +54,7 @@ export class TimerProcessor {
       if (expireDate < nowTime) { 
          log.info(timerDesc + " expired") 
          if (timer.itemId) { return this.updateItem(change, timer) }
-         else if (timer.dropId) { return this.updateDrop(change, timer) }
+         else if (timer.dropId) { return this.setDropLive(change, timer) }
          else { return logError(timerDesc + " does not have itemId or dropId") }
       }
       else {
@@ -66,17 +66,29 @@ export class TimerProcessor {
       }
    }
 
-   async updateDrop(change: any, timer: any) {
+   async setDropLive(change: any, timer: any) {
       const dropDesc = "drops[id: " + timer.dropId + "]"
       const dropRef = this.db.collection("drops").doc(timer.dropId);
    
-      log.info("Updating " + dropDesc)
-      return dropRef.update({ status: Drop.STATUS_LIVE } ).then(() => {  
-         const timerDesc = "timers[id: " + timer.id + "]"
-         console.log("Deleting " + timerDesc) 
-         return change.after.ref.delete()
+      let processingState = logInfo("Getting " + dropDesc)
+      return dropRef.get().then(doc => {
+         // if (!doc.exists) { return logError("Doc does not exist for " + dropDesc) }
+         // const drop = doc.data()
+         // if (!drop) { return logError("Doc.data does not exist for " + dropDesc) }
+         const drop = getDocData(doc, dropDesc)
+
+         const promises = []
+         if (Drop.isCountdown(drop)) {
+            processingState = logInfo("Updating " + dropDesc)
+            promises.push(dropRef.update({ status: Drop.STATUS_LIVE }))
+         }
+         
+         processingState = logInfo("Deleting timer[id: " + timer.id + "]")
+         promises.push(change.after.ref.delete())
+
+         return Promise.all(promises)
       })
-      .catch(error => { return logError("Error getting " + dropDesc, error) })
+      .catch(error => { return logError("Error in " + processingState, error) })
    }
 
    async updateItem(change: any, timer: any) {
@@ -85,10 +97,10 @@ export class TimerProcessor {
       
       const itemRef = this.db.collection("items").doc(timer.itemId);
       return itemRef.get().then(doc => {
-         if (!doc.exists) { return logError("Doc does not exist for " + itemDesc) }
-         const item = doc.data()
-         if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
-    
+         // if (!doc.exists) { return logError("Doc does not exist for " + itemDesc) }
+         // const item = doc.data()
+         // if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
+         const item = getDocData(doc, itemDesc)
          const promises = [] 
          
          processingState = logInfo("Updating " + itemDesc)
@@ -122,6 +134,13 @@ export class TimerProcessor {
    }
 }
    
+function getDocData(doc: any, desc: string) {
+   if (!doc.exists) { throw new Error("Doc does not exist for " + desc) }
+   if (!doc.data()) { throw new Error("Doc.data does not exist for " + desc) }
+   
+   return doc.data()
+}
+
 async function sleep(ms: number) {
    return new Promise(resolve => setTimeout(resolve, ms));
 }

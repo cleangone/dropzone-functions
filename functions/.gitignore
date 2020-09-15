@@ -5,6 +5,8 @@
 # Typescript v1 declaration files
 typings/
 
+src/Config.ts
+
 package-lock.json
 # package.json
 # tsconfig.json

@@ -20,23 +20,20 @@ export class Action {
 export class Drop {
    public static readonly STATUS_SCHEDULE  = 'Schedule'
    public static readonly STATUS_SCHEDULED = 'Scheduled'
-   public static readonly STATUS_STARTUP   = 'Start Countdown'
+   public static readonly STATUS_START_COUNTDOWN = 'Start Countdown'
    public static readonly STATUS_COUNTDOWN = 'Countdown'
-   public static readonly STATUS_LIVE = 'Live'
-
-   public static isSchedule(drop: any) { return drop.status === this.STATUS_SCHEDULED }
-   public static isStartup(drop: any)  { return drop.status === this.STATUS_STARTUP }
+   public static readonly STATUS_LIVE      = 'Live'
+   
+   public static isSchedule(drop: any)       { return drop.status === this.STATUS_SCHEDULE }
+   public static isScheduled(drop: any)      { return drop.status === this.STATUS_SCHEDULED }
+   public static isStartCountdown(drop: any) { return drop.status === this.STATUS_START_COUNTDOWN }
+   public static isCountdown(drop: any)      { return drop.status === this.STATUS_COUNTDOWN }
 }
+
 export class Email {
    public static readonly PURCHASE_SUCCESS = 'emailPurchaseSuccess'
    public static readonly PURCHASE_FAIL    = 'emailPurchaseFail'
    public static readonly WINNING_BID      = 'winningBid'
-}
-
-export class Item {
-   public static readonly STATUS_DROPPING = 'Dropping'
-   public static readonly STATUS_HOLD     = 'On Hold'
-   public static readonly STATUS_SOLD     = 'Sold'
 }
 
 export class Invoice {
@@ -50,4 +47,10 @@ export class Invoice {
    public static isUpdated(invoice: any) { return invoice.status === this.STATUS_UPDATED }
    public static isPaid(invoice: any)    { return invoice.status === this.STATUS_PAID }
    public static isShipped(invoice: any) { return invoice.status === this.STATUS_SHIPPED }
+}
+
+export class Item {
+   public static readonly STATUS_DROPPING = 'Dropping'
+   public static readonly STATUS_HOLD     = 'On Hold'
+   public static readonly STATUS_SOLD     = 'Sold'
 }
