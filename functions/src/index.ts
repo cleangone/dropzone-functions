@@ -4,6 +4,7 @@ import { ActionProcessor } from "./ActionProcessor"
 import { DropProcessor } from "./DropProcessor"
 import { InvoiceProcessor } from "./InvoiceProcessor"
 import { TimerProcessor } from "./TimerProcessor"
+import { TagProcessor } from "./TagProcessor"
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { DropPayload } from "./DropPayload"
@@ -18,6 +19,7 @@ let actionProcessor:ActionProcessor
 let dropProcessor:DropProcessor
 let invoiceProcessor:InvoiceProcessor
 let timerProcessor:TimerProcessor
+let tagProcessor:TagProcessor
 
 export const processAction = functions.firestore
    .document('actions/{id}')
@@ -52,6 +54,13 @@ export const processInvoice = functions.firestore
    .onWrite((change, context) => {
       if (!invoiceProcessor) { invoiceProcessor = new InvoiceProcessor(db, emailer, settingsWrapper) }
       return invoiceProcessor.processInvoice(change, context.params.id)
+})
+
+export const processTag = functions.firestore
+   .document('tags/{id}')
+   .onWrite((change, context) => {
+      if (!tagProcessor) { tagProcessor = new TagProcessor(db) }
+      return tagProcessor.processTag(change, context.params.id)
 })
 
 export const processTimer = functions.firestore

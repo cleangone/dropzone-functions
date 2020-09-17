@@ -72,12 +72,9 @@ export class TimerProcessor {
    
       let processingState = logInfo("Getting " + dropDesc)
       return dropRef.get().then(doc => {
-         // if (!doc.exists) { return logError("Doc does not exist for " + dropDesc) }
-         // const drop = doc.data()
-         // if (!drop) { return logError("Doc.data does not exist for " + dropDesc) }
          const drop = getDocData(doc, dropDesc)
-
          const promises = []
+
          if (Drop.isCountdown(drop)) {
             processingState = logInfo("Updating " + dropDesc)
             promises.push(dropRef.update({ status: Drop.STATUS_LIVE }))
@@ -97,9 +94,6 @@ export class TimerProcessor {
       
       const itemRef = this.db.collection("items").doc(timer.itemId);
       return itemRef.get().then(doc => {
-         // if (!doc.exists) { return logError("Doc does not exist for " + itemDesc) }
-         // const item = doc.data()
-         // if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
          const item = getDocData(doc, itemDesc)
          const promises = [] 
          
