@@ -58,7 +58,7 @@ export class InvoiceProcessor {
          const subject = Invoice.isCreated(invoice) ? "Invoice" : "Updated Invoice"
          const link = itemId ? this.settingsWrapper.itemLink(itemId, itemText) : this.settingsWrapper.siteLink(itemText)
          const htmlMsg = "Here is you invoice for " + link + "<br><br>" + 
-            "<table width=400px border=1><tr><td>" + invoice.html+  "</td></tr></table>"
+            "<table width=400px style='border:1px solid; padding:5px;'><tr><td>" + invoice.html + "</td></tr></table>"
          
          return this.emailer.sendEmail(invoice.userId, subject, htmlMsg).then(() => {
             console.log("Updating invoice " + invoiceDesc)
