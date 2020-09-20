@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin'
 import { ActionProcessor } from "./ActionProcessor"
 import { DropProcessor } from "./DropProcessor"
 import { InvoiceProcessor } from "./InvoiceProcessor"
+// import { ItemProcessor } from "./ItemProcessor"
 import { TimerProcessor } from "./TimerProcessor"
 import { TagProcessor } from "./TagProcessor"
 import { Emailer } from "./Emailer"
@@ -12,14 +13,17 @@ import { DropPayload } from "./DropPayload"
 "use strict"
 admin.initializeApp()
 const db = admin.firestore()
+// const storage = admin.storage()
+
 const settingsWrapper = new SettingsWrapper()
 const emailer = new Emailer(db, admin.auth(), settingsWrapper)
 // lazy instantiation because each function has a sep instance of each global var
-let actionProcessor:ActionProcessor
-let dropProcessor:DropProcessor
-let invoiceProcessor:InvoiceProcessor
-let timerProcessor:TimerProcessor
-let tagProcessor:TagProcessor
+let actionProcessor: ActionProcessor
+let dropProcessor: DropProcessor
+let invoiceProcessor: InvoiceProcessor
+// let itemProcessor: ItemProcessor
+let timerProcessor: TimerProcessor
+let tagProcessor: TagProcessor
 
 export const processAction = functions.firestore
    .document('actions/{id}')
@@ -55,6 +59,13 @@ export const processInvoice = functions.firestore
       if (!invoiceProcessor) { invoiceProcessor = new InvoiceProcessor(db, emailer, settingsWrapper) }
       return invoiceProcessor.processInvoice(change, context.params.id)
 })
+
+// export const processItem = functions.firestore
+//    .document('items/{id}')
+//    .onWrite((change, context) => {
+//       if (!itemProcessor) { itemProcessor = new ItemProcessor(storage) }
+//       return itemProcessor.processItem(change, context.params.id)
+// })
 
 export const processTag = functions.firestore
    .document('tags/{id}')

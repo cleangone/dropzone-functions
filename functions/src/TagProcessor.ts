@@ -46,7 +46,7 @@ export class TagProcessor {
             const item = doc.data()
             if (!item) { throw new Error("Doc.data does not exist for item") }
    
-            let itemDesc = "item[id: " + item.id + ", name: " + item.name + "]"
+            const itemDesc = "item[id: " + item.id + ", name: " + item.name + "]"
             processingState = logInfo("Updating " + itemDesc)
 
             item.tagNames[tag.category] = tag.name
@@ -54,7 +54,7 @@ export class TagProcessor {
             promises.push(itemRef.update({tagNames: item.tagNames }))         
          })
 
-         if (promises.length == 0) { logInfo("No items to update") }
+         if (promises.length === 0) { logInfo("No items to update") }
          return Promise.all(promises)
       })
       .catch(error => { return logError("Error in " + processingState, error) })      
