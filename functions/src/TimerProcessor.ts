@@ -76,6 +76,23 @@ export class TimerProcessor {
          const promises = []
 
          if (Drop.isCountdown(drop)) {
+            // update items in Setup to Available
+            processingState = logInfo("Getting items in Setup")
+            const itemQueryRef = this.db.collection("items").where("status", "==", Item.STATUS_SETUP)
+            itemQueryRef.get().then(querySnapshot => {
+               const batch = this.db.batch()
+               querySnapshot.forEach(itemDoc => {
+                  const item = itemDoc.data()
+                  const itemDesc = "item[id: " + item.id + "]"
+                  processingState = logInfo("Adding " + itemDesc + " update to batch")
+                  const itemRef = this.db.collection("items").doc(item.id)
+                  batch.update(itemRef, { status: Item.STATUS_AVAILABLE })
+               })
+               processingState = logInfo("Committing batch")
+               promises.push(batch.commit())
+            })
+            .catch(error => { return logError("Error in " + processingState, error) })
+         
             processingState = logInfo("Updating " + dropDesc)
             promises.push(dropRef.update({ status: Drop.STATUS_LIVE }))
          }

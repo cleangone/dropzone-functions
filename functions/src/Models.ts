@@ -50,7 +50,9 @@ export class Invoice {
 }
 
 export class Item {
-   public static readonly STATUS_DROPPING = 'Dropping'
-   public static readonly STATUS_HOLD     = 'On Hold'
-   public static readonly STATUS_SOLD     = 'Sold'
+   public static readonly STATUS_SETUP     = 'Setup'
+   public static readonly STATUS_AVAILABLE = 'Available'
+   public static readonly STATUS_DROPPING  = 'Dropping'
+   public static readonly STATUS_HOLD      = 'On Hold'
+   public static readonly STATUS_SOLD      = 'Sold'
 }
