@@ -18,38 +18,43 @@ export class Action {
 }
 
 export class Drop {
-   public static readonly STATUS_SCHEDULE  = 'Schedule'
-   public static readonly STATUS_SCHEDULED = 'Scheduled'
+   public static readonly STATUS_SCHEDULING = 'Scheduling'
+   public static readonly STATUS_SCHEDULED  = 'Scheduled'
    public static readonly STATUS_START_COUNTDOWN = 'Start Countdown'
-   public static readonly STATUS_COUNTDOWN = 'Countdown'
-   public static readonly STATUS_LIVE      = 'Live'
+   public static readonly STATUS_COUNTDOWN  = 'Countdown'
+   public static readonly STATUS_LIVE       = 'Live'
    
-   public static isSchedule(drop: any)       { return drop.status === this.STATUS_SCHEDULE }
+   public static isScheduling(drop: any)     { return drop.status === this.STATUS_SCHEDULING }
    public static isScheduled(drop: any)      { return drop.status === this.STATUS_SCHEDULED }
    public static isStartCountdown(drop: any) { return drop.status === this.STATUS_START_COUNTDOWN }
    public static isCountdown(drop: any)      { return drop.status === this.STATUS_COUNTDOWN }
 }
 
-export class Email {
-   public static readonly PURCHASE_SUCCESS = 'emailPurchaseSuccess'
-   public static readonly PURCHASE_FAIL    = 'emailPurchaseFail'
-   public static readonly WINNING_BID      = 'winningBid'
+export class EmailMgr {
+   public static readonly TYPE_PURCHASE_SUCCESS = 'emailPurchaseSuccess'
+   public static readonly TYPE_PURCHASE_FAIL    = 'emailPurchaseFail'
+   public static readonly TYPE_WINNING_BID      = 'winningBid'
+   public static readonly TYPE_SHIPPING         = 'emailShipping'
 }
 
-export class Invoice {
-   public static readonly STATUS_CREATED = 'Created'
-   public static readonly STATUS_UPDATED = 'Updated'
-   public static readonly STATUS_SENT    = 'Sent'
-   public static readonly STATUS_PAID    = 'Paid'
-   public static readonly STATUS_SHIPPED = 'Shipped'
+export class InvoiceMgr {
+   public static readonly STATUS_CREATED   = 'Created'
+   public static readonly STATUS_REVISED   = 'Revised'
+   public static readonly STATUS_PAID_FULL = 'Paid in Full'
+   public static readonly STATUS_SHIPPED   = 'Shipped'
+   
+   public static readonly SEND_STATUS_SENDING = 'Sending'
+   public static readonly SEND_STATUS_SENT    = 'Sent'
+   
+   public static isCreated(invoice: any)  { return invoice.status === this.STATUS_CREATED }
+   public static isRevised(invoice: any)  { return invoice.status === this.STATUS_REVISED }
+   public static isPaidFull(invoice: any) { return invoice.status === this.STATUS_PAID_FULL }
+   public static isShipped(invoice: any)  { return invoice.status === this.STATUS_SHIPPED }
 
-   public static isCreated(invoice: any) { return invoice.status === this.STATUS_CREATED }
-   public static isUpdated(invoice: any) { return invoice.status === this.STATUS_UPDATED }
-   public static isPaid(invoice: any)    { return invoice.status === this.STATUS_PAID }
-   public static isShipped(invoice: any) { return invoice.status === this.STATUS_SHIPPED }
+   public static isSending(invoice: any) { return invoice.sendStatus === this.SEND_STATUS_SENDING }
 }
 
-export class Item {
+export class ItemMgr {
    public static readonly STATUS_SETUP     = 'Setup'
    public static readonly STATUS_AVAILABLE = 'Available'
    public static readonly STATUS_DROPPING  = 'Dropping'

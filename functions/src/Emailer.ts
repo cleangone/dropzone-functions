@@ -1,9 +1,9 @@
-import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { SettingsWrapper } from "./SettingsWrapper"
+import { Log } from "./Log"
 
 "use strict"
-const log = functions.logger
+const log = new Log()
 
 export class Emailer {
    db: admin.firestore.Firestore
@@ -16,9 +16,9 @@ export class Emailer {
       this.settingsWrapper = settingsWrapper
    }
 
-   async sendConfiguredEmail(userId: string, field: string, itemId: string, itemName: string) {
-      const subject = this.settingsWrapper.emailSubject(field)          
-      const body    = this.settingsWrapper.emailBody(field)            
+   async sendConfiguredEmail(userId: string, emailType: string, itemId: string, itemName: string) {
+      const subject = this.settingsWrapper.emailSubject(emailType)          
+      const body    = this.settingsWrapper.emailBody(emailType)            
       return this.sendItemEmail(userId, subject, body, itemId, itemName) 
    }
 
@@ -43,15 +43,8 @@ export class Emailer {
             message: { subject: subject, html: htmlMsg }
          }
          return this.db.collection("emails").add(email)
-         .catch(error => { throw logReturnError("Error adding Email", error) })   
+         .catch(error => { throw log.returnError("Error adding Email", error) })   
       })
-      .catch(error => { throw logReturnError("Error getting " + authUserDesc, error) })
+      .catch(error => { throw log.returnError("Error getting " + authUserDesc, error) })
    }
-}
-
-function logReturnError(msg: string, error: any) {
-   if (error) { log.error(msg, error)}
-   else { log.error(msg) }
-
-   return error
 }

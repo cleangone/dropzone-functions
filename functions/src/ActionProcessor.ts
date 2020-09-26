@@ -1,12 +1,12 @@
-import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
-import { Action, Email, Item  } from "./Models"
+import { Action, EmailMgr, ItemMgr } from "./Managers"
+import { Log } from "./Log"
 
 "use strict"
-const log = functions.logger
+const log = new Log()
 
 export class ActionProcessor {
    db: admin.firestore.Firestore
@@ -32,11 +32,11 @@ export class ActionProcessor {
       }
 
       const action = snapshot.data()
-      if (!action) { return logError("Action does not exist") }
+      if (!action) { return log.error("Action does not exist") }
       
       if (Action.isBid(action) || Action.isPurchaseRequest(action)) {
-         if (!action.itemId) { return logError("action.itemId does not exist") }
-         if (!action.userId) { return logError("action.userId does not exist") }
+         if (!action.itemId) { return log.error("action.itemId does not exist") }
+         if (!action.userId) { return log.error("action.userId does not exist") }
       }
 
       log.info("Processing " + desc(action))
@@ -64,14 +64,14 @@ export class ActionProcessor {
       
       const itemDesc = "items[id: " + itemId + "]"
       log.info("Processing bid on " + itemDesc)
-      let processingState = logInfo("Getting " + itemDesc)
+      let processingState = log.returnInfo("Getting " + itemDesc)
       const itemRef = this.db.collection("items").doc(itemId);
       return itemRef.get().then(doc => {
-         if (!doc.exists) { return logError("Doc does not exist for " + itemDesc) }
+         if (!doc.exists) { return log.error("Doc does not exist for " + itemDesc) }
          const item = doc.data()
-         if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
+         if (!item) { return log.error("Doc.data does not exist for " + itemDesc) }
    
-         processingState = logInfo("Generating bidResults for " + itemDesc)
+         processingState = log.returnInfo("Generating bidResults for " + itemDesc)
          const processedDate = Date.now()
          const extensionSeconds = this.settingsWrapper.bidAdditionalSeconds()
          const dropDoneDate = processedDate + extensionSeconds * 1000
@@ -90,7 +90,7 @@ export class ActionProcessor {
                   numberOfBids: numberOfBids, 
                   lastUserActivityDate: processedDate, 
                   dropDoneDate: dropDoneDate,
-                  status: Item.STATUS_DROPPING,
+                  status: ItemMgr.STATUS_DROPPING,
                }
                bidResult.firstBid(itemUpdate, dropDoneDate) 
             }
@@ -143,7 +143,7 @@ export class ActionProcessor {
          
          const promises = []            
          if (bidResult.itemUpdate) {
-            processingState = logInfo("Updating " + itemDesc)
+            processingState = log.returnInfo("Updating " + itemDesc)
             promises.push(itemRef.update(bidResult.itemUpdate))
          }
          else { log.info("WARN: Bid on " + itemDesc + " did not result in an itemUpdate") }
@@ -151,7 +151,7 @@ export class ActionProcessor {
          // set timer 
          if (bidResult.timerExpireDate) {
             const timerId = "i-" + itemId
-            processingState = logInfo("Setting timer[id: " + timerId + "]")
+            processingState = log.returnInfo("Setting timer[id: " + timerId + "]")
             const timerRef = this.db.collection("timers").doc(timerId)
             const timer = { id: timerId, itemId: itemId, expireDate: bidResult.timerExpireDate }
             promises.push(timerRef.set(timer))
@@ -159,58 +159,58 @@ export class ActionProcessor {
 
          // update previous Action
          if (bidResult.prevActionId) {
-            processingState = logInfo("Updating previous action[id: " + bidResult.prevActionId + "]")
+            processingState = log.returnInfo("Updating previous action[id: " + bidResult.prevActionId + "]")
             const prevActionRef = this.db.collection("actions").doc(bidResult.prevActionId)
             promises.push(prevActionRef.update({ actionResult: bidResult.prevActionResult }))
          }
             
          // update this action
          if (bidResult.actionResult) {
-            processingState = logInfo("Updating snapshot action")
+            processingState = log.returnInfo("Updating snapshot action")
             promises.push(this.updateAction(action, snapshot, processedDate, bidResult.actionResult))
          }
 
          return Promise.all(promises)
       })
-      .catch(error => { return logError("Error in " + processingState, error) })  
+      .catch(error => { return log.error("Error in " + processingState, error) })  
    }
 
    processPurchaseRequest(action: any, snapshot: any) {
-      log.info("ActionProcessor.processPurchaseRequest")
-      
+      let processingState = log.returnInfo("ActionProcessor.processPurchaseRequest")
       const itemId = action.itemId
       const userId = action.userId
       
-      const itemDesc = "items[id: " + itemId + "]"
-      log.info("Processing purchase request  " + itemDesc)
+      const itemDesc = "item[id: " + itemId + "]"
+      processingState = log.returnInfo("Processing purchase request  " + itemDesc)
       const itemRef = this.db.collection("items").doc(itemId)
       return itemRef.get().then(doc => {
-         if (!doc.exists) { return logError("Doc does not exist for " + itemDesc) }
+         if (!doc.exists) { return log.error("Doc does not exist for " + itemDesc) }
          const item = doc.data()
-         if (!item) { return logError("Doc.data does not exist for " + itemDesc) }
+         if (!item) { return log.error("Doc.data does not exist for " + itemDesc) }
    
          const processedDate = Date.now()
          const promises = []
-         if (item.buyPrice === 0) {
+         if (!item.buyPrice || item.buyPrice === 0) {
             const itemUpdate = { 
+               buyDate: processedDate, 
                buyPrice: item.startPrice, 
                buyerId: userId, 
                lastUserActivityDate: processedDate, 
-               status: Item.STATUS_HOLD
+               status: ItemMgr.STATUS_HOLD
             }
 
-            log.info("Updating " + itemDesc)
-            promises.push(itemRef.update(itemUpdate).catch(error => { return logError("Error updating " + itemDesc, error) }))         
+            processingState = log.returnInfo("Updating " + itemDesc, itemUpdate)
+            promises.push(itemRef.update(itemUpdate))         
             promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_PURCHASED))
-            promises.push(this.emailer.sendConfiguredEmail(userId, Email.PURCHASE_SUCCESS, itemId, item.name)) 
+            promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_SUCCESS, itemId, item.name)) 
          }
          else { 
             promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_ALREADY_SOLD))
-            promises.push(this.emailer.sendConfiguredEmail(userId, Email.PURCHASE_FAIL, itemId, item.name)) 
+            promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_FAIL, itemId, item.name)) 
          }
          return Promise.all(promises)
       })
-      .catch(error => { return logError("Error getting " + itemDesc, error) })  
+      .catch(error => { return log.error("Error in " + processingState, error) })  
    }
 
    updateAction(action:any, snapshot:any, processedDate:any, actionResult:string) { 
@@ -222,18 +222,6 @@ export class ActionProcessor {
 
 function desc(action:any) { return "actions[id: " + action.id + ", actionType: " + action.actionType + "]" }     
    
-function logInfo(msg: string) {
-   log.info(msg)
-   return msg
-}
-
-function logError(msg: string, error: any = null) {
-   if (error) { log.error(msg, error)}
-   else { log.error(msg) }
-
-   return null
-}
-
 class BidResult {
    actionResult: string
    itemUpdate: any

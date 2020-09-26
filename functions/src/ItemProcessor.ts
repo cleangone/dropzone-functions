@@ -14,13 +14,12 @@ export class ItemProcessor {
 
    async processItem(change: any, itemId: string) {
       if (!change.after.exists) { return this.processItemDelete(change, itemId) }
-
       return null
    }
 
    async processItemDelete(change: any, itemId: string) {
       const itemDesc = "item[id: " + itemId + "]"
-      let processingState = log.info("processItemDelete: " + itemDesc)
+      let processingState = log.returnInfo("processItemDelete: " + itemDesc)
       
       const item = change.before.data()
       if (!item) { return log.error(itemDesc + " before.data does not exist") }
@@ -29,10 +28,10 @@ export class ItemProcessor {
          const promises = []
          const bucket = this.storage.bucket()
          
-         processingState = log.info("Deleting " + item.imageFilePath)
+         processingState = log.returnInfo("Deleting " + item.imageFilePath)
          promises.push(bucket.file(item.imageFilePath).delete())
 
-         processingState = log.info("Deleting " + item.thumbFilePath)
+         processingState = log.returnInfo("Deleting " + item.thumbFilePath)
          promises.push(bucket.file(item.thumbFilePath).delete())
 
          return Promise.all(promises)

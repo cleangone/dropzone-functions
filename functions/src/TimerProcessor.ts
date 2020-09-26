@@ -1,13 +1,13 @@
-import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { uuid } from 'uuidv4'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
-import { Action, Drop, Email, Item  } from "./Models"
+import { Action, Drop, EmailMgr, ItemMgr  } from "./Managers"
+import { Log } from "./Log"
 
 "use strict"
-const log = functions.logger
+const log = new Log()
 
 /*
    timer:
@@ -41,21 +41,18 @@ export class TimerProcessor {
       }
       
       const timerDesc = "timers[id: " + timerId + "]"
-      if (!change.after.exists) { 
-         log.info(timerDesc + " deleted")
-         return null 
-      } 
+      if (!change.after.exists) { return log.info(timerDesc + " deleted") } 
 
       const timer = change.after.data();
-      if (!timer) { return logError(timerDesc + " data does not exist") }
+      if (!timer) { return log.error(timerDesc + " data does not exist") }
 
       const nowTime = (new Date()).getTime();
       const expireDate = timer.expireDate;
       if (expireDate < nowTime) { 
          log.info(timerDesc + " expired") 
-         if (timer.itemId) { return this.updateItem(change, timer) }
+         if (timer.itemId) { return this.updateItemWinningBid(change, timer) }
          else if (timer.dropId) { return this.setDropLive(change, timer) }
-         else { return logError(timerDesc + " does not have itemId or dropId") }
+         else { return log.error(timerDesc + " does not have itemId or dropId") }
       }
       else {
          let remainingSeconds = Math.floor((expireDate - nowTime)/1000)
@@ -70,54 +67,57 @@ export class TimerProcessor {
       const dropDesc = "drops[id: " + timer.dropId + "]"
       const dropRef = this.db.collection("drops").doc(timer.dropId);
    
-      let processingState = logInfo("Getting " + dropDesc)
+      let processingState = log.returnInfo("Getting " + dropDesc)
       return dropRef.get().then(doc => {
          const drop = getDocData(doc, dropDesc)
          const promises = []
 
          if (Drop.isCountdown(drop)) {
             // update items in Setup to Available
-            processingState = logInfo("Getting items in Setup")
-            const itemQueryRef = this.db.collection("items").where("status", "==", Item.STATUS_SETUP)
+            processingState = log.returnInfo("Getting items in Setup")
+            const itemQueryRef = this.db.collection("items").where("status", "==", ItemMgr.STATUS_SETUP)
             itemQueryRef.get().then(querySnapshot => {
                const batch = this.db.batch()
                querySnapshot.forEach(itemDoc => {
                   const item = itemDoc.data()
                   const itemDesc = "item[id: " + item.id + "]"
-                  processingState = logInfo("Adding " + itemDesc + " update to batch")
+                  processingState = log.returnInfo("Adding " + itemDesc + " update to batch")
                   const itemRef = this.db.collection("items").doc(item.id)
-                  batch.update(itemRef, { status: Item.STATUS_AVAILABLE })
+                  batch.update(itemRef, { status: ItemMgr.STATUS_AVAILABLE })
                })
-               processingState = logInfo("Committing batch")
+               processingState = log.returnInfo("Committing batch")
                promises.push(batch.commit())
             })
-            .catch(error => { return logError("Error in " + processingState, error) })
+            .catch(error => { return log.error("Error in " + processingState, error) })
          
-            processingState = logInfo("Updating " + dropDesc)
+            processingState = log.returnInfo("Updating " + dropDesc)
             promises.push(dropRef.update({ status: Drop.STATUS_LIVE }))
          }
          
-         processingState = logInfo("Deleting timer[id: " + timer.id + "]")
+         processingState = log.returnInfo("Deleting timer[id: " + timer.id + "]")
          promises.push(change.after.ref.delete())
 
          return Promise.all(promises)
       })
-      .catch(error => { return logError("Error in " + processingState, error) })
+      .catch(error => { return log.error("Error in " + processingState, error) })
    }
 
-   async updateItem(change: any, timer: any) {
+   async updateItemWinningBid(change: any, timer: any) {
       const itemDesc = "item[id: " + timer.itemId + "]"
-      let processingState = logInfo("Getting " + itemDesc)
+      let processingState = log.returnInfo("Getting " + itemDesc)
       
       const itemRef = this.db.collection("items").doc(timer.itemId);
       return itemRef.get().then(doc => {
          const item = getDocData(doc, itemDesc)
          const promises = [] 
          
-         processingState = logInfo("Updating " + itemDesc)
-         promises.push(itemRef.update({ status: Item.STATUS_HOLD, buyerId: item.currBidderId }))
+         processingState = log.returnInfo("Updating " + itemDesc)
+         promises.push(itemRef.update({ 
+            status: ItemMgr.STATUS_HOLD, 
+            buyerId: item.currBidderId,
+            buyDate: new Date() }))
          
-         processingState = logInfo("Creating winning bid action")
+         processingState = log.returnInfo("Creating winning bid action")
          const actionId = uuid()
          const action = { 
             id: actionId,
@@ -134,14 +134,14 @@ export class TimerProcessor {
          promises.push(actionRef.set(action))
          
          processingState = "Sending email"
-         promises.push(this.emailer.sendConfiguredEmail(item.currBidderId, Email.WINNING_BID, item.id, item.name))
+         promises.push(this.emailer.sendConfiguredEmail(item.currBidderId, EmailMgr.TYPE_WINNING_BID, item.id, item.name))
          
-         processingState = logInfo("Deleting timer[id: " + timer.id + "]")
+         processingState = log.returnInfo("Deleting timer[id: " + timer.id + "]")
          promises.push(change.after.ref.delete())
 
          return Promise.all(promises)
       })
-      .catch(error => { return logError("Error in " + processingState, error) })
+      .catch(error => { return log.error("Error in " + processingState, error) })
    }
 }
    
@@ -154,16 +154,4 @@ function getDocData(doc: any, desc: string) {
 
 async function sleep(ms: number) {
    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function logInfo(msg: string) {
-   log.info(msg)
-   return msg
-}
-
-function logError(msg: string, error: any = null) {
-   if (error) { log.error(msg, error)}
-   else { log.error(msg) }
-
-   return null
 }
