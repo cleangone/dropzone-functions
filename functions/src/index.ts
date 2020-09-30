@@ -6,6 +6,7 @@ import { InvoiceProcessor } from "./InvoiceProcessor"
 import { ItemProcessor } from "./ItemProcessor"
 import { TimerProcessor } from "./TimerProcessor"
 import { TagProcessor } from "./TagProcessor"
+import { ErrorProcessor } from "./ErrorProcessor"
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { DropPayload } from "./DropPayload"
@@ -24,6 +25,7 @@ let invoiceProcessor: InvoiceProcessor
 let itemProcessor: ItemProcessor
 let timerProcessor: TimerProcessor
 let tagProcessor: TagProcessor
+let errorProcessor: ErrorProcessor
 
 export const processAction = functions.firestore
    .document('actions/{id}')
@@ -51,6 +53,13 @@ export const startDropCountdown = functions.https
          console.error(error)
          response.status(500).send(error)
       }
+})
+
+export const processError = functions.firestore
+   .document('errors/{id}')
+   .onCreate((snapshot, context) => {
+      if (!errorProcessor) { errorProcessor = new ErrorProcessor(db, emailer) }
+      return errorProcessor.processError(snapshot)
 })
 
 export const processInvoice = functions.firestore

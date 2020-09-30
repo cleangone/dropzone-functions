@@ -32,19 +32,25 @@ export class Emailer {
    }
 
    async sendEmail(userId: string, subject: string, htmlMsg: string) {
-      const authUserDesc = "authUser[id: " + userId + "]"
-      
-      log.info("Getting " + authUserDesc)
-      return this.auth.getUser(userId).then(userRecord => {
-         log.info("Creating email")
-         const email =  { 
-            to: [userRecord.email],
+      const userDesc = "user[id: " + userId + "]"
+      let processingState = log.returnInfo("Getting " + userDesc)
+      const userRef = this.db.collection("users").doc(userId)
+      return userRef.get().then(doc => {
+         if (!doc.exists) { return log.error("Doc does not exist for " + userDesc) }
+         const user = doc.data()
+         if (!user) { return log.error("Doc.data does not exist for " + userDesc) }
+   
+         if (!user.email) { return log.info("User " + user.authEmailCopy + " is not receiving emails") }
+
+         processingState = log.returnInfo("Creating email")
+         const email = { 
+            to: [user.authEmailCopy],
             from: this.settingsWrapper.fromEmailAddress(),
             message: { subject: subject, html: htmlMsg }
          }
          return this.db.collection("emails").add(email)
-         .catch(error => { throw log.returnError("Error adding Email", error) })   
+         .catch(error => { throw log.returnError("Error in " + processingState, error) })   
       })
-      .catch(error => { throw log.returnError("Error getting " + authUserDesc, error) })
+      .catch(error => { throw log.returnError("Error in " + processingState, error) })
    }
 }
