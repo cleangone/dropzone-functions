@@ -62,7 +62,7 @@ export class ActionProcessor {
       const itemId = action.itemId
       const userId = action.userId
       
-      const itemDesc = "items[id: " + itemId + "]"
+      let itemDesc = "item[id: " + itemId + "]"
       log.info("Processing bid on " + itemDesc)
       let processingState = log.returnInfo("Getting " + itemDesc)
       const itemRef = this.db.collection("items").doc(itemId);
@@ -70,13 +70,15 @@ export class ActionProcessor {
          if (!doc.exists) { return log.error("Doc does not exist for " + itemDesc) }
          const item = doc.data()
          if (!item) { return log.error("Doc.data does not exist for " + itemDesc) }
-   
+         itemDesc = "item[id: " + itemId + ", name:" + item.name + "]"
+
          processingState = log.returnInfo("Generating bidResults for " + itemDesc)
          const processedDate = Date.now()
          const extensionSeconds = this.settingsWrapper.bidAdditionalSeconds()
          const dropDoneDate = processedDate + extensionSeconds * 1000
          const numberOfBids = item.numberOfBids ? item.numberOfBids + 1 : 1
-         
+         const newBid = { actionId: action.id, amount: action.amount, userId: action.userId, userNickname: action.userNickname, date: action.createdDate } 
+                  
          const bidResult = new BidResult()
          if (item.buyPrice === 0) {
             // first bidder
@@ -84,59 +86,64 @@ export class ActionProcessor {
                const itemUpdate = { 
                   buyPrice: item.startPrice, 
                   bidderIds: admin.firestore.FieldValue.arrayUnion(userId),
-                  currBidderId: userId, 
-                  currBidAmount: action.amount, 
-                  currActionId: action.id,
                   numberOfBids: numberOfBids, 
-                  lastUserActivityDate: processedDate, 
-                  dropDoneDate: dropDoneDate,
+                  currBid: newBid, 
                   status: ItemMgr.STATUS_DROPPING,
+                  dropDoneDate: dropDoneDate,
+                  lastUserActivityDate: processedDate, 
                }
                bidResult.firstBid(itemUpdate, dropDoneDate) 
             }
          }
          else if (action.amount <= item.buyPrice) {
-            const itemUpdate = { bidderIds: admin.firestore.FieldValue.arrayUnion(action.userId), numberOfBids: numberOfBids }
+            // bid is already outbid - race condition with simultaneous bids
+            const itemUpdate = { 
+               bidderIds: admin.firestore.FieldValue.arrayUnion(action.userId), 
+               numberOfBids: numberOfBids,
+               prevBids: admin.firestore.FieldValue.arrayUnion(newBid),   
+            }
             bidResult.outbid(itemUpdate, dropDoneDate)    
          }
-         else if (userId === item.currBidderId) {
-            if (action.amount > item.currBidAmount) {
+         else if (userId === item.currBid.userId) {
+            if (action.amount > item.currBid.amount) {
                // high bidder is bumping higher - does not impact buyPrice or dropDoneDate
-               const prevActionId = item.currActionId 
+               const prevActionId = item.currBid.actionId 
                const itemUpdate = { 
-                  currBidAmount: action.amount, 
-                  currActionId: action.id,
                   numberOfBids: numberOfBids, 
+                  currBid: newBid, 
+                  prevBids: admin.firestore.FieldValue.arrayUnion(item.currBid),
                   lastUserActivityDate: processedDate, 
                }
                bidResult.highBidIncreased(itemUpdate, prevActionId ) 
             }
          }
-         else if (action.amount > item.currBidAmount) {
-            // new high bidder
-            const prevActionId = item.currActionId
-            const buyPrice = Math.min(action.amount, item.currBidAmount + 25)
+         else if (action.amount > item.currBid.amount) {
+            log.info("New high bidder on " + itemDesc + ": " + 
+               "action.amount " + action.amount  + " > currBid.amount " + item.currBid.amount)
+            const prevActionId = item.currBid.actionId 
+            const buyPrice = Math.min(action.amount, item.currBid.amount + 25)
             const itemUpdate = { 
                buyPrice: buyPrice, 
                bidderIds: admin.firestore.FieldValue.arrayUnion(userId),
-               currBidderId: userId, 
-               currBidAmount: action.amount, 
-               currActionId: action.id,
                numberOfBids: numberOfBids, 
-               lastUserActivityDate: processedDate, 
+               currBid: newBid, 
+               prevBids: admin.firestore.FieldValue.arrayUnion(item.currBid),
                dropDoneDate: dropDoneDate,
+               lastUserActivityDate: processedDate, 
             }
             bidResult.highBid(itemUpdate, dropDoneDate, prevActionId) 
          }
          else {
-            // curr bidder still high bidder, dropDoneDate reset, and new bid is outbid
-            const buyPrice = Math.min(action.amount + 25, item.currBidAmount)
+            log.info("High bidder on " + itemDesc + "being pushed higher: " + 
+               "action.amount " + action.amount  + " <= currBid.amount " + item.currBid.amount)
+            const buyPrice = Math.min(action.amount + 25, item.currBid.amount)
             const itemUpdate = { 
                buyPrice: buyPrice, 
                bidderIds: admin.firestore.FieldValue.arrayUnion(userId),
                numberOfBids: numberOfBids, 
-               lastUserActivityDate: processedDate, 
+               prevBids: admin.firestore.FieldValue.arrayUnion(newBid),
                dropDoneDate: dropDoneDate,
+               lastUserActivityDate: processedDate, 
             }
             bidResult.outbid(itemUpdate, dropDoneDate) 
          }

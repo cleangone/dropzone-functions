@@ -114,7 +114,7 @@ export class TimerProcessor {
          processingState = log.returnInfo("Updating " + itemDesc)
          promises.push(itemRef.update({ 
             status: ItemMgr.STATUS_HOLD, 
-            buyerId: item.currBidderId,
+            buyerId: item.currBid.userId,
             buyDate: new Date() }))
          
          processingState = log.returnInfo("Creating winning bid action")
@@ -125,16 +125,18 @@ export class TimerProcessor {
             actionResult: Action.RESULT_WINNING_BID,
             createdDate: Date.now(),
             status: Action.STATUS_CREATED,
-            userId: item.currBidderId,
+            userId: item.currBid.userId,
+            userNickname: item.currBid.userNickname,
             itemId: item.id,
             itemName: item.name,
-            amount: item.buyPrice 
+            amount: item.buyPrice,
+            maxAmount: item.currBid.amount
          }
          const actionRef = this.db.collection("actions").doc(actionId)
          promises.push(actionRef.set(action))
          
          processingState = "Sending email"
-         promises.push(this.emailer.sendConfiguredEmail(item.currBidderId, EmailMgr.TYPE_WINNING_BID, item.id, item.name))
+         promises.push(this.emailer.sendConfiguredEmail(item.currBid.userId, EmailMgr.TYPE_WINNING_BID, item.id, item.name))
          
          processingState = log.returnInfo("Deleting timer[id: " + timer.id + "]")
          promises.push(change.after.ref.delete())
