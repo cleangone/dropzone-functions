@@ -60,4 +60,6 @@ export class ItemMgr {
    public static readonly STATUS_DROPPING  = 'Dropping'
    public static readonly STATUS_HOLD      = 'On Hold'
    public static readonly STATUS_SOLD      = 'Sold'
+
+   public static isAvailable(item: any)  { return item.status === this.STATUS_AVAILABLE }
 }

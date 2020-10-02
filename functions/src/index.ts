@@ -72,7 +72,7 @@ export const processInvoice = functions.firestore
 export const processItem = functions.firestore
    .document('items/{id}')
    .onWrite((change, context) => {
-      if (!itemProcessor) { itemProcessor = new ItemProcessor(storage) }
+      if (!itemProcessor) { itemProcessor = new ItemProcessor(db, storage) }
       return itemProcessor.processItem(change, context.params.id)
 })
 
