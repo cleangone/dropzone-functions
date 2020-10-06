@@ -5,6 +5,7 @@ export class Action {
    public static readonly STATUS_CREATED      = 'Created'
    public static readonly STATUS_PROCESSED    = 'Processed'
 
+   public static readonly RESULT_LATE_BID     = 'Late Bid'
    public static readonly RESULT_HIGH_BID     = 'High Bid'
    public static readonly RESULT_INCREASED    = 'Increased'
    public static readonly RESULT_OUTBID       = 'Outbid'
@@ -63,3 +64,9 @@ export class ItemMgr {
 
    public static isAvailable(item: any)  { return item.status === this.STATUS_AVAILABLE }
 }
+
+export class UserMgr {
+   public static readonly ALERT_TYPE_OUTBID   = 'Outbid'
+   public static readonly ALERT_TYPE_LATE_BID = 'Late Bid'
+}
+  

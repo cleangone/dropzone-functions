@@ -1,9 +1,9 @@
 import * as admin from 'firebase-admin'
-import { uuid } from 'uuidv4'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
 import { Action, Drop, EmailMgr, ItemMgr  } from "./Managers"
+import { Uid } from "./Utils"
 import { Log } from "./Log"
 
 "use strict"
@@ -118,7 +118,7 @@ export class TimerProcessor {
             buyDate: new Date() }))
          
          processingState = log.returnInfo("Creating winning bid action")
-         const actionId = uuid()
+         const actionId = Uid.dateUid()
          const action = { 
             id: actionId,
             actionType: Action.TYPE_BID,

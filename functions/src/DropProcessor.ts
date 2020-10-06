@@ -1,9 +1,9 @@
 import * as admin from 'firebase-admin'
 const { CloudTasksClient } = require('@google-cloud/tasks')
-import { uuid } from 'uuidv4'
 import { Drop } from "./Managers"
 import { DropPayload } from "./DropPayload"
 import { Config } from "./Config"
+import { Uid } from "./Utils"
 import { Log } from "./Log"
 
 "use strict"
@@ -32,7 +32,7 @@ export class DropProcessor {
          
          const functionUrl = 
             "https://" + Config.FIREBASE_LOCATION + "-" +  Config.PROJECT_ID +  ".cloudfunctions.net/startDropCountdown"
-         const cloudTaskId = uuid()
+         const cloudTaskId = Uid.uid()
          const dropPayload: DropPayload = { dropId: drop.id, cloudTaskId: cloudTaskId }
          const startCountdownSeconds = drop.startDate.seconds - 60 // start countdown a minute before drop.startDate 
          const cloudTask = {

@@ -2,7 +2,8 @@ import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
-import { Action, EmailMgr, ItemMgr } from "./Managers"
+import { Action, EmailMgr, ItemMgr, UserMgr } from "./Managers"
+import { Uid } from "./Utils"
 import { Log } from "./Log"
 
 "use strict"
@@ -41,7 +42,7 @@ export class ActionProcessor {
 
       log.info("Processing " + desc(action))
       if (Action.isWinningBid(action)) { 
-         log.info("Bypassing winning bid" + desc(action)) 
+         log.info("Bypassing winning bid " + desc(action)) 
          return null
       }
       else if (Action.isBid(action)) {  
@@ -72,16 +73,26 @@ export class ActionProcessor {
          if (!item) { return log.error("Doc.data does not exist for " + itemDesc) }
          itemDesc = "item[id: " + itemId + ", name:" + item.name + "]"
 
-         processingState = log.returnInfo("Generating bidResults for " + itemDesc)
          const processedDate = Date.now()
+         if (item.buyDate && item.buyDate != 0) {
+            processingState = log.returnInfo("Late bid on " + itemDesc)
+            const lateBidUserUpdate = createAlertUpdate(item, UserMgr.ALERT_TYPE_LATE_BID)
+            
+            const lateBidPromises = []  
+            lateBidPromises.push(this.db.collection("users").doc(userId).update(lateBidUserUpdate))
+            lateBidPromises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_LATE_BID))
+            return Promise.all(lateBidPromises)
+         }
+
+         processingState = log.returnInfo("Generating bidResults for " + itemDesc)
          const extensionSeconds = this.settingsWrapper.bidAdditionalSeconds()
          const dropDoneDate = processedDate + extensionSeconds * 1000
          const numberOfBids = item.numberOfBids ? item.numberOfBids + 1 : 1
          const newBid = { actionId: action.id, amount: action.amount, userId: action.userId, userNickname: action.userNickname, date: action.createdDate } 
-                  
+
          const bidResult = new BidResult()
          if (item.buyPrice === 0) {
-            // first bidder
+            log.info("First bid on " + itemDesc)
             if (action.amount >= item.startPrice) {
                const itemUpdate = { 
                   buyPrice: item.startPrice, 
@@ -96,17 +107,17 @@ export class ActionProcessor {
             }
          }
          else if (action.amount <= item.buyPrice) {
-            // bid is already outbid - race condition with simultaneous bids
+            log.info("New bid on " + itemDesc + " is already outbid")
             const itemUpdate = { 
                bidderIds: admin.firestore.FieldValue.arrayUnion(action.userId), 
                numberOfBids: numberOfBids,
                prevBids: admin.firestore.FieldValue.arrayUnion(newBid),   
             }
-            bidResult.outbid(itemUpdate, dropDoneDate)    
+            bidResult.outbid(itemUpdate, item, userId, dropDoneDate)    
          }
          else if (userId === item.currBid.userId) {
             if (action.amount > item.currBid.amount) {
-               // high bidder is bumping higher - does not impact buyPrice or dropDoneDate
+               log.info("High bidder on " + itemDesc + " is raising the max bid")
                const prevActionId = item.currBid.actionId 
                const itemUpdate = { 
                   numberOfBids: numberOfBids, 
@@ -118,8 +129,7 @@ export class ActionProcessor {
             }
          }
          else if (action.amount > item.currBid.amount) {
-            log.info("New high bidder on " + itemDesc + ": " + 
-               "action.amount " + action.amount  + " > currBid.amount " + item.currBid.amount)
+            log.info("New high bidder on " + itemDesc)
             const prevActionId = item.currBid.actionId 
             const buyPrice = Math.min(action.amount, item.currBid.amount + 25)
             const itemUpdate = { 
@@ -131,11 +141,10 @@ export class ActionProcessor {
                dropDoneDate: dropDoneDate,
                lastUserActivityDate: processedDate, 
             }
-            bidResult.highBid(itemUpdate, dropDoneDate, prevActionId) 
+            bidResult.highBid(itemUpdate, item, dropDoneDate, prevActionId) 
          }
          else {
-            log.info("High bidder on " + itemDesc + "being pushed higher: " + 
-               "action.amount " + action.amount  + " <= currBid.amount " + item.currBid.amount)
+            log.info("High bidder on " + itemDesc + "being pushed higher")
             const buyPrice = Math.min(action.amount + 25, item.currBid.amount)
             const itemUpdate = { 
                buyPrice: buyPrice, 
@@ -145,7 +154,8 @@ export class ActionProcessor {
                dropDoneDate: dropDoneDate,
                lastUserActivityDate: processedDate, 
             }
-            bidResult.outbid(itemUpdate, dropDoneDate) 
+
+            bidResult.outbid(itemUpdate, item, userId, dropDoneDate) 
          }
          
          const promises = []            
@@ -154,6 +164,16 @@ export class ActionProcessor {
             promises.push(itemRef.update(bidResult.itemUpdate))
          }
          else { log.info("WARN: Bid on " + itemDesc + " did not result in an itemUpdate") }
+
+         if (bidResult.alertUserId) {   
+            const userDesc = "user[id: " + bidResult.alertUserId + "]"
+            processingState = log.returnInfo("Creating alert for " + userDesc)
+            // not using subcollection because vuexfire does not support nicely
+            // const alertRef = this.db.collection("users").doc(bidResult.alertUserId)
+            //    .collection("alerts").doc(bidResult.userAlert.id)
+            const userRef = this.db.collection("users").doc(bidResult.alertUserId)
+            promises.push(userRef.update(bidResult.alertUserUpdate))
+         }
 
          // set timer 
          if (bidResult.timerExpireDate) {
@@ -226,15 +246,15 @@ export class ActionProcessor {
          status: Action.STATUS_PROCESSED, processedDate: processedDate, actionResult: actionResult })
    }  
 }
-
-function desc(action:any) { return "actions[id: " + action.id + ", actionType: " + action.actionType + "]" }     
-   
+  
 class BidResult {
    actionResult: string
    itemUpdate: any
    timerExpireDate: number
    prevActionId: string
    prevActionResult: string
+   alertUserId: string
+   alertUserUpdate: any
    
    firstBid(itemUpdate: any, timerExpireDate: number) {
       this.actionResult = Action.RESULT_HIGH_BID
@@ -242,12 +262,14 @@ class BidResult {
       this.timerExpireDate = timerExpireDate
    }
 
-   highBid(itemUpdate: any, timerExpireDate: number, prevActionId: string) {
+   highBid(itemUpdate: any, item: any, timerExpireDate: number, prevActionId: string) {
       this.actionResult = Action.RESULT_HIGH_BID
       this.itemUpdate = itemUpdate
       this.timerExpireDate = timerExpireDate
       this.prevActionId = prevActionId
       this.prevActionResult = Action.RESULT_OUTBID
+      this.alertUserId = item.currBid.userId
+      this.alertUserUpdate = createAlertUpdate(item, UserMgr.ALERT_TYPE_OUTBID)
    }
 
    highBidIncreased(itemUpdate: any, prevActionId: string) {
@@ -257,9 +279,19 @@ class BidResult {
       this.prevActionResult = Action.RESULT_INCREASED
    }
 
-   outbid(itemUpdate: any, timerExpireDate: number) {
+   outbid(itemUpdate: any, item: any, outbidUserId: string, timerExpireDate: number) {
       this.actionResult = Action.RESULT_OUTBID
       this.itemUpdate = itemUpdate
       this.timerExpireDate = timerExpireDate
+      this.alertUserId = outbidUserId
+      this.alertUserUpdate = createAlertUpdate(item, UserMgr.ALERT_TYPE_OUTBID)
    }
+}
+
+function desc(action:any) { return "action[id: " + action.id + ", actionType: " + action.actionType + "]" }     
+ 
+function createAlertUpdate(item: any, alertType: string) {
+   return  { alerts: admin.firestore.FieldValue.arrayUnion(       
+      { id: Uid.dateUid(), itemId: item.id, itemName: item.name, alertType: alertType, createdDate: Date.now() }
+   )}
 }
