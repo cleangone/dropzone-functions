@@ -29,15 +29,25 @@ export class ItemProcessor {
       if (!item) { return log.error(itemDesc + " before.data does not exist") }
       
       try {
-         const promises = []
          const bucket = this.storage.bucket()
-         
-         processingState = log.returnInfo("Deleting " + item.imageFilePath)
-         promises.push(bucket.file(item.imageFilePath).delete())
+         const promises = []
+         if (item.primaryImage) {
+            processingState = log.returnInfo("Deleting file " + item.primaryImage.filePath)
+            promises.push(bucket.file(item.primaryImage.filePath).delete())
+   
+            processingState = log.returnInfo("Deleting file " + item.primaryImage.thumbFilePath)
+            promises.push(bucket.file(item.primaryImage.thumbFilePath).delete())
+         }
 
-         processingState = log.returnInfo("Deleting " + item.thumbFilePath)
-         promises.push(bucket.file(item.thumbFilePath).delete())
-
+         if (item.images) {
+            for (var image of item.images) {
+               processingState = log.returnInfo("Deleting file " + image.filePath)
+               promises.push(bucket.file(image.filePath).delete())
+      
+               processingState = log.returnInfo("Deleting file " + image.thumbFilePath)
+               promises.push(bucket.file(image.thumbFilePath).delete())
+            }
+         }
          return Promise.all(promises)
       }
       catch(error) { return log.error("Error in " + processingState, error) }
