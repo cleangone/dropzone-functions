@@ -74,7 +74,7 @@ export class ActionProcessor {
          itemDesc = "item[id: " + itemId + ", name:" + item.name + "]"
 
          const processedDate = Date.now()
-         if (item.buyDate && item.buyDate != 0) {
+         if (item.buyDate && item.buyDate !== 0) {
             processingState = log.returnInfo("Late bid on " + itemDesc)
             const lateBidUserUpdate = createAlertUpdate(item, UserMgr.ALERT_TYPE_LATE_BID)
             

@@ -40,7 +40,7 @@ export class ItemProcessor {
          }
 
          if (item.images) {
-            for (var image of item.images) {
+            for (const image of item.images) {
                processingState = log.returnInfo("Deleting file " + image.filePath)
                promises.push(bucket.file(image.filePath).delete())
       
@@ -57,7 +57,7 @@ export class ItemProcessor {
       let itemDesc = "item[id: " + itemId + "]"
       let processingState = log.returnInfo("processItemUpdate: " + itemDesc)
       
-      // only interested in updates that change status to Available
+      // delete all associated actions if change is to Available from a diff status
       const itemBefore = change.before.data()
       const item = change.after.data()
       if (!ItemMgr.isAvailable(item) || ItemMgr.isAvailable(itemBefore)) { return null }

@@ -65,6 +65,12 @@ export class ItemMgr {
    public static isAvailable(item: any)  { return item.status === this.STATUS_AVAILABLE }
 }
 
+export class SmsMgr {
+   public static readonly STATUS_CREATED     = 'Created'
+   public static readonly STATUS_SENT        = 'Sent'
+   public static readonly STATUS_SEND_FAILED = 'Send Failed'
+}
+
 export class UserMgr {
    public static readonly ALERT_TYPE_OUTBID   = 'Outbid'
    public static readonly ALERT_TYPE_LATE_BID = 'Late Bid'

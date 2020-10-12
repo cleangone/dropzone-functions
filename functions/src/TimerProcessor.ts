@@ -80,12 +80,12 @@ export class TimerProcessor {
                const batch = this.db.batch()
                querySnapshot.forEach(itemDoc => {
                   const item = itemDoc.data()
-                  const itemDesc = "item[id: " + item.id + "]"
+                  const itemDesc = "item[id: " + item.id + ", name: " + item.name + ", status: " + item.status + "]"
                   processingState = log.returnInfo("Adding " + itemDesc + " update to batch")
                   const itemRef = this.db.collection("items").doc(item.id)
                   batch.update(itemRef, { status: ItemMgr.STATUS_AVAILABLE })
                })
-               processingState = log.returnInfo("Committing batch")
+               processingState = log.returnInfo("Committing batch status update")
                promises.push(batch.commit())
             })
             .catch(error => { return log.error("Error in " + processingState, error) })
