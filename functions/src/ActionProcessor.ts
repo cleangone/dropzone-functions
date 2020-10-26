@@ -101,7 +101,7 @@ export class ActionProcessor {
                   currBid: newBid, 
                   status: ItemMgr.STATUS_DROPPING,
                   dropDoneDate: dropDoneDate,
-                  lastUserActivityDate: processedDate, 
+                  userUpdatedDate: processedDate, 
                }
                bidResult.firstBid(itemUpdate, dropDoneDate) 
             }
@@ -123,7 +123,7 @@ export class ActionProcessor {
                   numberOfBids: numberOfBids, 
                   currBid: newBid, 
                   prevBids: admin.firestore.FieldValue.arrayUnion(item.currBid),
-                  lastUserActivityDate: processedDate, 
+                  userUpdatedDate: processedDate, 
                }
                bidResult.highBidIncreased(itemUpdate, prevActionId ) 
             }
@@ -139,7 +139,7 @@ export class ActionProcessor {
                currBid: newBid, 
                prevBids: admin.firestore.FieldValue.arrayUnion(item.currBid),
                dropDoneDate: dropDoneDate,
-               lastUserActivityDate: processedDate, 
+               userUpdatedDate: processedDate, 
             }
             bidResult.highBid(itemUpdate, item, dropDoneDate, prevActionId) 
          }
@@ -152,7 +152,7 @@ export class ActionProcessor {
                numberOfBids: numberOfBids, 
                prevBids: admin.firestore.FieldValue.arrayUnion(newBid),
                dropDoneDate: dropDoneDate,
-               lastUserActivityDate: processedDate, 
+               userUpdatedDate: processedDate, 
             }
 
             bidResult.outbid(itemUpdate, item, userId, dropDoneDate) 
@@ -222,7 +222,7 @@ export class ActionProcessor {
                buyDate: processedDate, 
                buyPrice: item.startPrice, 
                buyerId: userId, 
-               lastUserActivityDate: processedDate, 
+               userUpdatedDate: processedDate, 
                status: ItemMgr.STATUS_HOLD
             }
 
