@@ -1,8 +1,10 @@
 export class Action {
    public static readonly TYPE_BID            = 'Bid'
    public static readonly TYPE_PURCHASE_REQ   = 'Purchase Request'
+   public static readonly TYPE_ACCEPT_REQ     = 'Accept Purchase Request'
 
    public static readonly STATUS_CREATED      = 'Created'
+   public static readonly STATUS_QUEUED       = 'Queued'
    public static readonly STATUS_PROCESSED    = 'Processed'
 
    public static readonly RESULT_LATE_BID     = 'Late Bid'
@@ -15,6 +17,7 @@ export class Action {
 
    public static isBid(action: any) { return action.actionType === this.TYPE_BID }
    public static isPurchaseRequest(action: any) { return action.actionType === this.TYPE_PURCHASE_REQ }
+   public static isAcceptRequest(action: any) { return action.actionType === this.TYPE_ACCEPT_REQ }
    public static isWinningBid(action: any) { return action.actionResult === this.RESULT_WINNING_BID }
 }
 
@@ -59,6 +62,7 @@ export class ItemMgr {
    public static readonly STATUS_SETUP     = 'Setup'
    public static readonly STATUS_AVAILABLE = 'Available'
    public static readonly STATUS_DROPPING  = 'Dropping'
+   public static readonly STATUS_REQUESTED = 'Requested'
    public static readonly STATUS_HOLD      = 'On Hold'
    public static readonly STATUS_SOLD      = 'Sold'
 

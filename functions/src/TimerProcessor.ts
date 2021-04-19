@@ -83,7 +83,7 @@ export class TimerProcessor {
                   const itemDesc = "item[id: " + item.id + ", name: " + item.name + ", status: " + item.status + "]"
                   processingState = log.returnInfo("Adding " + itemDesc + " update to batch")
                   const itemRef = this.db.collection("items").doc(item.id)
-                  batch.update(itemRef, { status: ItemMgr.STATUS_AVAILABLE })
+                  batch.update(itemRef, { status: ItemMgr.STATUS_AVAILABLE, availableDate: Date.now() })
                })
                processingState = log.returnInfo("Committing batch status update")
                promises.push(batch.commit())

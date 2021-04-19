@@ -45,12 +45,9 @@ export class ActionProcessor {
          log.info("Bypassing winning bid " + desc(action)) 
          return null
       }
-      else if (Action.isBid(action)) {  
-         return this.processBid(action, snapshot)
-      }
-      else if (Action.isPurchaseRequest(action)) {
-         return this.processPurchaseRequest(action, snapshot)
-      }
+      else if (Action.isBid(action)) { return this.processBid(action, snapshot) }
+      else if (Action.isPurchaseRequest(action)) { return this.processPurchaseRequest(action, snapshot) }
+      else if (Action.isAcceptRequest(action)) { return this.acceptPurchaseRequest(action, snapshot) }
       else {
          log.info("Bypassing " + desc(action))
          return null
@@ -217,24 +214,120 @@ export class ActionProcessor {
    
          const processedDate = Date.now()
          const promises = []
-         if (!item.buyPrice || item.buyPrice === 0) {
+
+         const numberOfPurchaseReqs = item.numberOfPurchaseReqs ? item.numberOfPurchaseReqs + 1 : 1
+         const purchaseReq = { 
+            actionId: action.id, 
+            userId: userId, 
+            userNickname: action.userNickname,
+            amount: action.amount,
+            date: processedDate,
+         }
+
+         if (this.settingsWrapper.isAutomaticPurchaseReqProcessing()) {
+            log.info("Processing automatic bid on " + itemDesc)
+            // todo: this is if automatic request processing
+            if (!item.buyPrice || item.buyPrice === 0) {
+               const itemUpdate = { 
+                  buyDate: processedDate, 
+                  buyPrice: item.startPrice, 
+                  buyerId: userId, 
+                  userUpdatedDate: processedDate, 
+                  status: ItemMgr.STATUS_HOLD,
+                  numberOfPurchaseReqs: numberOfPurchaseReqs, 
+                  purchaseReqs: admin.firestore.FieldValue.arrayUnion(purchaseReq)
+               }
+
+               processingState = log.returnInfo("Updating " + itemDesc, itemUpdate)
+               promises.push(itemRef.update(itemUpdate))         
+               promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_PURCHASED))
+               promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_SUCCESS, itemId, item.name)) 
+            }
+            else { 
+
+               const itemUpdate = { 
+                  numberOfPurchaseReqs: numberOfPurchaseReqs,
+                  purchaseReqs: admin.firestore.FieldValue.arrayUnion(purchaseReq),   
+               }
+               processingState = log.returnInfo("Updating " + itemDesc, itemUpdate)
+               promises.push(itemRef.update(itemUpdate))
+               promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_ALREADY_SOLD))
+               promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_FAIL, itemId, item.name)) 
+            }
+         }
+         else if (item.status == ItemMgr.STATUS_HOLD || item.status == ItemMgr.STATUS_SOLD) {
+            // purchase request came in after other requests processed manually
+            promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_ALREADY_SOLD)) 
+         }
+         else {
+            log.info("Queuing purchase request for " + itemDesc)
             const itemUpdate = { 
-               buyDate: processedDate, 
-               buyPrice: item.startPrice, 
-               buyerId: userId, 
-               userUpdatedDate: processedDate, 
-               status: ItemMgr.STATUS_HOLD
+               status: ItemMgr.STATUS_REQUESTED,
+               numberOfPurchaseReqs: numberOfPurchaseReqs,
+               purchaseReqs: admin.firestore.FieldValue.arrayUnion(purchaseReq),   
+            }
+            processingState = log.returnInfo("Updating " + itemDesc, itemUpdate)
+            promises.push(itemRef.update(itemUpdate))
+            promises.push(this.queueAction(action, snapshot))
+         }
+
+         return Promise.all(promises)
+      })
+      .catch(error => { return log.error("Error in " + processingState, error) })  
+   }
+
+   acceptPurchaseRequest(action: any, snapshot: any) {
+      let processingState = log.returnInfo("ActionProcessor.acceptPurchaseRequest")
+      const itemId = action.itemId
+      const userId = action.userId
+      const acceptedActionId = action.refActionId
+      
+      const itemDesc = "item[id: " + itemId + "]"
+      processingState = log.returnInfo("Processing accept purchase request for " + itemDesc)
+      const itemRef = this.db.collection("items").doc(itemId)
+      return itemRef.get().then(doc => {
+         if (!doc.exists) { return log.error("Doc does not exist for " + itemDesc) }
+         const item = doc.data()
+         if (!item) { return log.error("Doc.data does not exist for " + itemDesc) }
+   
+         const processedDate = Date.now()
+         const promises = []
+         
+         const itemUpdate = { 
+            status: ItemMgr.STATUS_HOLD,
+            buyerId: userId, 
+            buyerName: action.userNickname,
+            buyPrice: item.startPrice,
+            buyDate: processedDate, 
+            acceptedPurchaseReqId: acceptedActionId,
+            userUpdatedDate: processedDate, 
+         }
+
+         processingState = log.returnInfo("Updating " + itemDesc, itemUpdate)
+         promises.push(itemRef.update(itemUpdate))         
+         promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_PURCHASED))
+         
+         // email purchase confirmation 
+         promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_SUCCESS, itemId, item.name)) 
+         
+         let emailedUsers = new Set()
+         emailedUsers.add(userId)
+         for (let purchaseReq of item.purchaseReqs) {            
+            // email sorrys - note that a user could have made multiple purchase reqs
+            if (!emailedUsers.has(purchaseReq.userId)) {
+               promises.push(this.emailer.sendConfiguredEmail(purchaseReq.userId, EmailMgr.TYPE_PURCHASE_FAIL, itemId, item.name))
+               emailedUsers.add(purchaseReq.userId)
             }
 
-            processingState = log.returnInfo("Updating " + itemDesc, itemUpdate)
-            promises.push(itemRef.update(itemUpdate))         
-            promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_PURCHASED))
-            promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_SUCCESS, itemId, item.name)) 
+            // update purchaseRequest actions
+            const actionResult = purchaseReq.actionId == acceptedActionId ? Action.RESULT_PURCHASED : Action.RESULT_ALREADY_SOLD
+            const actionUpdate = { status: Action.STATUS_PROCESSED, processedDate: processedDate, actionResult: actionResult } 
+            processingState = log.returnInfo("Updating actions[id: " + purchaseReq.actionId + "]", actionUpdate)
+            
+            const actionRef = this.db.collection("actions").doc(purchaseReq.actionId)
+            promises.push(actionRef.update(actionUpdate))         
          }
-         else { 
-            promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_ALREADY_SOLD))
-            promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_FAIL, itemId, item.name)) 
-         }
+          
          return Promise.all(promises)
       })
       .catch(error => { return log.error("Error in " + processingState, error) })  
@@ -244,6 +337,11 @@ export class ActionProcessor {
       console.log("Updating " + desc(action))
       return snapshot.ref.update({ 
          status: Action.STATUS_PROCESSED, processedDate: processedDate, actionResult: actionResult })
+   }  
+
+   queueAction(action:any, snapshot:any) { 
+      console.log("Queuing " + desc(action))
+      return snapshot.ref.update({ status: Action.STATUS_QUEUED })
    }  
 }
   
