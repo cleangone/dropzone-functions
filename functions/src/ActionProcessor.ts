@@ -232,8 +232,8 @@ export class ActionProcessor {
                   buyDate: processedDate, 
                   buyPrice: item.startPrice, 
                   buyerId: userId, 
-                  userUpdatedDate: processedDate, 
                   status: ItemMgr.STATUS_HOLD,
+                  userUpdatedDate: processedDate, 
                   numberOfPurchaseReqs: numberOfPurchaseReqs, 
                   purchaseReqs: admin.firestore.FieldValue.arrayUnion(purchaseReq)
                }
@@ -263,6 +263,7 @@ export class ActionProcessor {
             log.info("Queuing purchase request for " + itemDesc)
             const itemUpdate = { 
                status: ItemMgr.STATUS_REQUESTED,
+               userUpdatedDate: processedDate,
                numberOfPurchaseReqs: numberOfPurchaseReqs,
                purchaseReqs: admin.firestore.FieldValue.arrayUnion(purchaseReq),   
             }
