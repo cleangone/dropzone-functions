@@ -31,7 +31,7 @@ export class TagProcessor {
       tagDesc = "tag[id: " + tagId + ", name: " + tag.name + "]"
       let processingState = log.returnInfo("Getting items with " + tagDesc)
       const itemCollection = this.db.collection("items")
-      const itemQueryRef = itemCollection.where("tagIds." + tag.category, "==", tagId)
+      const itemQueryRef = itemCollection.where("tagIds", "array-contains", tagId)
       return itemQueryRef.get().then(function(querySnapshot) {
          processingState = log.returnInfo("Iterating through items")
          const promises:any = [] 
@@ -44,9 +44,15 @@ export class TagProcessor {
             const itemDesc = "item[id: " + item.id + ", name: " + item.name + "]"
             processingState = log.returnInfo("Updating " + itemDesc)
 
-            item.tagNames[tag.category] = tag.name
+            for (const itemTag of item.tags) {
+               if (itemTag.id === tag.id) { 
+                  itemTag.name = tag.name
+                  itemTag.sortName = tag.sortName
+               }
+            }
+
             const itemRef = itemCollection.doc(item.id);
-            promises.push(itemRef.update({tagNames: item.tagNames }))         
+            promises.push(itemRef.update({tags: item.tags }))         
          })
 
          if (promises.length === 0) { log.info("No items to update") }
