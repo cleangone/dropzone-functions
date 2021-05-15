@@ -1,9 +1,9 @@
 
 import { uuid } from 'uuidv4'
+import * as moment from 'moment'
 
 export class Uid {
-   // todo - add mm_dd_yy_ prefix
-   public static dateUid()  { return this.uid() }
+   public static dateUid()  { return moment(Date.now()).format('MM-DD-YY-') + this.uid() }
    public static uid()  { return uuid() }
 }
 

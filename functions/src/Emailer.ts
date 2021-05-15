@@ -1,6 +1,8 @@
 import * as admin from 'firebase-admin'
 import { SettingsWrapper } from "./SettingsWrapper"
 import { Log } from "./Log"
+import { Uid } from "./Utils"
+
 
 "use strict"
 const log = new Log()
@@ -44,12 +46,14 @@ export class Emailer {
 
          processingState = log.returnInfo("Creating email")
          const email = { 
+            id: Uid.dateUid(),
             to: [user.authEmailCopy],
             from: this.settingsWrapper.fromEmailAddress(),
             message: { subject: subject, html: htmlMsg }
          }
-         return this.db.collection("emails").add(email)
-         .catch(error => { throw log.returnError("Error in " + processingState, error) })   
+
+         return this.db.collection("emails").doc(email.id).set(email) 
+            .catch(error => { throw log.returnError("Error in " + processingState, error) })   
       })
       .catch(error => { throw log.returnError("Error in " + processingState, error) })
    }
