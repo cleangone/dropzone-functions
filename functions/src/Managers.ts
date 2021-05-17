@@ -39,6 +39,9 @@ export class EmailMgr {
    public static readonly TYPE_PURCHASE_FAIL    = 'emailPurchaseFail'
    public static readonly TYPE_WINNING_BID      = 'winningBid'
    public static readonly TYPE_SHIPPING         = 'emailShipping'
+
+   public static isDeliverySuccess(email: any) { return email.delivery && email.delivery.state === "SUCCESS" }
+   public static isDeliveryError(email: any)   { return email.delivery && email.delivery.state === "ERROR" }
 }
 
 export class InvoiceMgr {
@@ -49,6 +52,7 @@ export class InvoiceMgr {
    
    public static readonly SEND_STATUS_SENDING = 'Sending'
    public static readonly SEND_STATUS_SENT    = 'Sent'
+   public static readonly SEND_STATUS_ERROR   = 'Send Error'
    
    public static isCreated(invoice: any)  { return invoice.status === this.STATUS_CREATED }
    public static isRevised(invoice: any)  { return invoice.status === this.STATUS_REVISED }

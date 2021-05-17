@@ -2,12 +2,13 @@ import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { ActionProcessor } from "./ActionProcessor"
 import { DropProcessor } from "./DropProcessor"
+import { EmailProcessor } from "./EmailProcessor"
+import { ErrorProcessor } from "./ErrorProcessor"
 import { InvoiceProcessor } from "./InvoiceProcessor"
 import { ItemProcessor } from "./ItemProcessor"
 import { SmsProcessor } from "./SmsProcessor"
 import { TimerProcessor } from "./TimerProcessor"
 import { TagProcessor } from "./TagProcessor"
-import { ErrorProcessor } from "./ErrorProcessor"
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { DropPayload } from "./DropPayload"
@@ -24,12 +25,13 @@ const emailer = new Emailer(db, admin.auth(), settingsWrapper)
 // lazy instantiation because each function has a sep instance of each global var
 let actionProcessor:  ActionProcessor
 let dropProcessor:    DropProcessor
+let emailProcessor:   EmailProcessor
+let errorProcessor:   ErrorProcessor
 let invoiceProcessor: InvoiceProcessor
 let itemProcessor:    ItemProcessor
 let smsProcessor:     SmsProcessor
 let timerProcessor:   TimerProcessor
 let tagProcessor:     TagProcessor
-let errorProcessor:   ErrorProcessor
 
 export const processAction = functions.firestore
    .document('actions/{id}')
@@ -56,6 +58,13 @@ export const startDropCountdown = functions.https.onRequest(async (req, res) => 
       log.error("startDropCountdown error", error)
       res.status(500).send(error)
    }
+})
+
+export const processEmail = functions.firestore
+   .document('emails/{id}')
+   .onWrite((change, context) => {
+      if (!emailProcessor) { emailProcessor = new EmailProcessor(db) }
+      return emailProcessor.processEmail(change, context.params.id)
 })
 
 export const processError = functions.firestore

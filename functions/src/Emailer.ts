@@ -1,8 +1,7 @@
 import * as admin from 'firebase-admin'
 import { SettingsWrapper } from "./SettingsWrapper"
-import { Log } from "./Log"
 import { Uid } from "./Utils"
-
+import { Log } from "./Log"
 
 "use strict"
 const log = new Log()
@@ -30,10 +29,14 @@ export class Emailer {
       const itemLink = this.settingsWrapper.itemLink(itemId, itemName)          
       const parsedSubject = subject.replace(nameRegex, itemName)
       const parsedMsg = htmlMsg.replace(linkRegex, itemLink).replace(nameRegex, itemName)
-      return this.sendEmail(userId, parsedSubject, parsedMsg)
+      return this.sendEmail(userId, parsedSubject, parsedMsg, { itemId: itemId })
    }
 
-   async sendEmail(userId: string, subject: string, htmlMsg: string) {
+   async sendInvoiceEmail(userId: string, subject: string, htmlMsg: string, invoiceId: string) {
+      return this.sendEmail(userId, subject, htmlMsg, { invoiceId: invoiceId } ) 
+   }
+   
+   async sendEmail(userId: string, subject: string, htmlMsg: string, referenceIds = {}) {
       const userDesc = "user[id: " + userId + "]"
       let processingState = log.returnInfo("Getting " + userDesc)
       const userRef = this.db.collection("users").doc(userId)
@@ -45,11 +48,14 @@ export class Emailer {
          if (!user.email) { return log.info("User " + user.authEmailCopy + " is not receiving emails") }
 
          processingState = log.returnInfo("Creating email")
+         const to = user.authEmailCopy ? user.authEmailCopy : user.anonUserEmail
          const email = { 
             id: Uid.dateUid(),
-            to: [user.authEmailCopy],
+            userId: userId,
+            to: [to],
             from: this.settingsWrapper.fromEmailAddress(),
-            message: { subject: subject, html: htmlMsg }
+            message: { subject: subject, html: htmlMsg },
+            referenceIds: referenceIds
          }
 
          return this.db.collection("emails").doc(email.id).set(email) 

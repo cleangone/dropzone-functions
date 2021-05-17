@@ -50,7 +50,7 @@ export class InvoiceProcessor {
             invoice.html + 
             "</td></tr></table>"
          
-         return this.emailer.sendEmail(invoice.userId, subject, htmlMsg).then(() => {
+         return this.emailer.sendInvoiceEmail(invoice.userId, subject, htmlMsg, invoice.id).then(() => {
             console.log("Updating invoice " + invoiceDesc)
             return change.after.ref.update({ sendStatus: InvoiceMgr.SEND_STATUS_SENT, sentDate: Date.now() })
          })
@@ -64,7 +64,7 @@ export class InvoiceProcessor {
             log.info("Updating " + itemDesc)  
             const itemRef = this.db.collection("items").doc(item.id);
             const itemPromise = itemRef.update({ status: ItemMgr.STATUS_SOLD } )
-            .catch(error => { throw log.returnError("Error updating " + itemDesc, error) })
+               .catch(error => { throw log.returnError("Error updating " + itemDesc, error) })
    
             promises.push(itemPromise)
          }
