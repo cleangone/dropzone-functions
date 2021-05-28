@@ -38,6 +38,7 @@ export class EmailProcessor {
             deliveryError: email.delivery.error,
             emailSubject: email.message.subject,
             emailTo: email.to[0],
+            isVisible: true,
             createdDate: Date.now()
          }
 

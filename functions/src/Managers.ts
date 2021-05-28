@@ -1,8 +1,8 @@
 export class Action {
-   public static readonly TYPE_BID            = 'Bid'
-   public static readonly TYPE_PURCHASE_REQ   = 'Purchase Request'
-   public static readonly TYPE_ACCEPT_REQ     = 'Accept Purchase Request'
-
+   public static readonly TYPE_BID   = 'Bid'
+   static readonly TYPE_PURCHASE_REQ = 'Purchase Request'
+   static readonly TYPE_ACCEPT_REQ   = 'Accept Purchase Request'
+   
    public static readonly STATUS_CREATED      = 'Created'
    public static readonly STATUS_QUEUED       = 'Queued'
    public static readonly STATUS_PROCESSED    = 'Processed'
@@ -14,10 +14,10 @@ export class Action {
    public static readonly RESULT_PURCHASED    = 'Purchased'
    public static readonly RESULT_ALREADY_SOLD = 'Already Sold'
    public static readonly RESULT_WINNING_BID  = 'Winning Bid'
-
-   public static isBid(action: any) { return action.actionType === this.TYPE_BID }
+   
+   public static isBid(action: any)             { return action.actionType === this.TYPE_BID }
    public static isPurchaseRequest(action: any) { return action.actionType === this.TYPE_PURCHASE_REQ }
-   public static isAcceptRequest(action: any) { return action.actionType === this.TYPE_ACCEPT_REQ }
+   public static isAcceptRequest(action: any)   { return action.actionType === this.TYPE_ACCEPT_REQ }
    public static isWinningBid(action: any) { return action.actionResult === this.RESULT_WINNING_BID }
 }
 
@@ -46,9 +46,9 @@ export class EmailMgr {
 
 export class InvoiceMgr {
    public static readonly STATUS_CREATED   = 'Created'
-   public static readonly STATUS_REVISED   = 'Revised'
-   public static readonly STATUS_PAID_FULL = 'Paid in Full'
-   public static readonly STATUS_SHIPPED   = 'Shipped'
+   static readonly STATUS_REVISED   = 'Revised'
+   static readonly STATUS_PAID_FULL = 'Paid in Full'
+   static readonly STATUS_SHIPPED   = 'Shipped'
    
    public static readonly SEND_STATUS_SENDING = 'Sending'
    public static readonly SEND_STATUS_SENT    = 'Sent'
@@ -65,12 +65,17 @@ export class InvoiceMgr {
 export class ItemMgr {
    public static readonly STATUS_SETUP     = 'Setup'
    public static readonly STATUS_AVAILABLE = 'Available'
+   public static readonly STATUS_LIVE      = 'Live'
    public static readonly STATUS_DROPPING  = 'Dropping'
    public static readonly STATUS_REQUESTED = 'Requested'
    public static readonly STATUS_HOLD      = 'On Hold'
    public static readonly STATUS_SOLD      = 'Sold'
-
-   public static isAvailable(item: any)  { return item.status === this.STATUS_AVAILABLE }
+   public static readonly STATUS_CLOSED    = 'Closed'
+   static readonly SALE_TYPE_DROP = 'Drop'
+   
+   public static isAvailable(item: any) { return item.status === this.STATUS_AVAILABLE }
+   public static isClosed(item: any)    { return item.status === this.STATUS_CLOSED }
+   public static isDrop(item: any)  { return item.saleType === this.SALE_TYPE_DROP }
 }
 
 export class SmsMgr {

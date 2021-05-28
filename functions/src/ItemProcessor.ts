@@ -60,28 +60,47 @@ export class ItemProcessor {
       // delete all associated actions if change is to Available from a diff status
       const itemBefore = change.before.data()
       const item = change.after.data()
-      if (!ItemMgr.isAvailable(item) || ItemMgr.isAvailable(itemBefore)) { return null }
-
       itemDesc = "item[id: " + itemId + ", name: " + item.name + "]"
-      processingState = log.returnInfo("Processing update of item.status to Available - " + itemDesc)
+      if (ItemMgr.isAvailable(item) && !ItemMgr.isAvailable(itemBefore)) { 
+         processingState = log.returnInfo("Processing update of item.status to Available - " + itemDesc)
+         const actionCollection = this.db.collection("actions")
+         const queryRef = actionCollection.where("itemId", "==", itemId)
+         return queryRef.get().then(function(querySnapshot) {
+            processingState = log.returnInfo("Iterating through actions with itemId = " + itemId)
+            const promises:any = []
+            querySnapshot.forEach(function(doc) {
+               if (!doc.exists) { throw new Error("Doc does not exist for action") }
+               const action = doc.data()
+               if (!action) { throw new Error("Doc.data does not exist for action") }
 
-      const actionCollection = this.db.collection("actions")
-      const queryRef = actionCollection.where("itemId", "==", itemId)
-      return queryRef.get().then(function(querySnapshot) {
-         processingState = log.returnInfo("Iterating through actions with itemId = " + itemId)
-         const promises:any = []
-         querySnapshot.forEach(function(doc) {
-            if (!doc.exists) { throw new Error("Doc does not exist for action") }
-            const action = doc.data()
-            if (!action) { throw new Error("Doc.data does not exist for action") }
+               processingState = log.returnInfo("Deleting action[id: " + action.id + "]")
+               promises.push(actionCollection.doc(action.id).delete())
+            })
 
-            processingState = log.returnInfo("Deleting action[id: " + action.id + "]")
-            promises.push(actionCollection.doc(action.id).delete())
+            return Promise.all(promises)  
          })
-
-         return Promise.all(promises)  
-      })
-      .catch(error => { return log.error("Error in " + processingState, error) }) 
+         .catch(error => { return log.error("Error in " + processingState, error) }) 
+      }
+      else if (ItemMgr.isClosed(item) && !ItemMgr.isClosed(itemBefore)) { 
+         processingState = log.returnInfo("Closing " + itemDesc)
+         if (item.buyPrice !== 0) { 
+            processingState = log.returnInfo("Setting timer to process winning bid for " + itemDesc)
+            try {
+               // set a 1 sec item timer - timer expiratioin handles winning bid processing
+               const timerId = "i-" + itemId
+               const expireDate = Date.now() + 1000
+               processingState = log.returnInfo("Setting timer[id: " + timerId + "]")
+               const timerRef = this.db.collection("timers").doc(timerId)
+               const timer = { id: timerId, itemId: itemId, expireDate: expireDate }     
+               return timerRef.set(timer)
+            }
+            catch(error) { 
+               return log.error("Error in " + processingState, error) 
+            } 
+         }
+      }
+      
+      return null
    }
 
 }
