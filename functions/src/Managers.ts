@@ -1,7 +1,7 @@
 export class Action {
-   public static readonly TYPE_BID   = 'Bid'
-   static readonly TYPE_PURCHASE_REQ = 'Purchase Request'
-   static readonly TYPE_ACCEPT_REQ   = 'Accept Purchase Request'
+   public static readonly TYPE_BID            = 'Bid'
+   public static readonly TYPE_PURCHASE_REQ   = 'Purchase Request'
+   public static readonly TYPE_ACCEPT_REQ     = 'Accept Purchase Request'
    
    public static readonly STATUS_CREATED      = 'Created'
    public static readonly STATUS_QUEUED       = 'Queued'
@@ -46,9 +46,9 @@ export class EmailMgr {
 
 export class InvoiceMgr {
    public static readonly STATUS_CREATED   = 'Created'
-   static readonly STATUS_REVISED   = 'Revised'
-   static readonly STATUS_PAID_FULL = 'Paid in Full'
-   static readonly STATUS_SHIPPED   = 'Shipped'
+   public static readonly STATUS_REVISED   = 'Revised'
+   public static readonly STATUS_PAID_FULL = 'Paid in Full'
+   public static readonly STATUS_SHIPPED   = 'Shipped'
    
    public static readonly SEND_STATUS_SENDING = 'Sending'
    public static readonly SEND_STATUS_SENT    = 'Sent'
@@ -71,7 +71,7 @@ export class ItemMgr {
    public static readonly STATUS_HOLD      = 'On Hold'
    public static readonly STATUS_SOLD      = 'Sold'
    public static readonly STATUS_CLOSED    = 'Closed'
-   static readonly SALE_TYPE_DROP = 'Drop'
+   public static readonly SALE_TYPE_DROP   = 'Drop'
    
    public static isAvailable(item: any) { return item.status === this.STATUS_AVAILABLE }
    public static isClosed(item: any)    { return item.status === this.STATUS_CLOSED }
