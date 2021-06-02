@@ -46,7 +46,9 @@ export class EmailMgr {
 
 export class InvoiceMgr {
    public static readonly STATUS_CREATED   = 'Created'
+   public static readonly STATUS_SENT      = 'Sent'
    public static readonly STATUS_REVISED   = 'Revised'
+   public static readonly STATUS_RESENT    = 'Resent'
    public static readonly STATUS_PAID_FULL = 'Paid in Full'
    public static readonly STATUS_SHIPPED   = 'Shipped'
    

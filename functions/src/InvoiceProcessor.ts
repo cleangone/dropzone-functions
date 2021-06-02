@@ -39,12 +39,11 @@ export class InvoiceProcessor {
 
       if (InvoiceMgr.isSending(invoice)) {
          // send email and set status to Sent
-         let subjectPrefix = "Invoice"
-         if (InvoiceMgr.isRevised(invoice)) { subjectPrefix = "Revised Invoice" }
-         else if (InvoiceMgr.isPaidFull(invoice)) { subjectPrefix = "Invoice Paid" }
-         else if (InvoiceMgr.isShipped(invoice)) { subjectPrefix = "Invoice Items Shipped" }
+         let subjectPrefix = ""
+         if (InvoiceMgr.isPaidFull(invoice)) { subjectPrefix = "Paid - " }
+         else if (InvoiceMgr.isShipped(invoice)) { subjectPrefix = "Shipped - " }
          
-         const subject = subjectPrefix + " - " + invoice.name
+         const subject = subjectPrefix + invoice.name
          const htmlMsg = 
             "<table width=400px style='border:1px solid; padding:5px;'><tr><td>" + 
             invoice.html + 
@@ -52,7 +51,24 @@ export class InvoiceProcessor {
          
          return this.emailer.sendInvoiceEmail(invoice.userId, subject, htmlMsg, invoice.id).then(() => {
             console.log("Updating invoice " + invoiceDesc)
-            return change.after.ref.update({ sendStatus: InvoiceMgr.SEND_STATUS_SENT, sentDate: Date.now() })
+            
+            const processedDate = Date.now()
+            let updatedStatus = invoice.status
+            let historyStatus = InvoiceMgr.STATUS_SENT 
+
+            if (InvoiceMgr.isCreated(invoice)) { updatedStatus = InvoiceMgr.STATUS_SENT }
+            else if (InvoiceMgr.isRevised(invoice)) { 
+               updatedStatus = InvoiceMgr.STATUS_RESENT 
+               historyStatus = InvoiceMgr.STATUS_RESENT 
+            }
+            else { historyStatus = InvoiceMgr.STATUS_RESENT  }
+            
+            return change.after.ref.update({ 
+               status: updatedStatus, 
+               sendStatus: InvoiceMgr.SEND_STATUS_SENT, 
+               sentDate: processedDate,
+               history: admin.firestore.FieldValue.arrayUnion({ date: processedDate, status: historyStatus }),   
+            })
          })
          .catch(error => { return log.error("Error sending Email", error) }) 
       } 
