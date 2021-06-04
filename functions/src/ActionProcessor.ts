@@ -3,7 +3,7 @@ import { BidProcessor } from "./BidProcessor"
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
-import { Action, EmailMgr, ItemMgr } from "./Managers"
+import { Action, EmailMgr, ItemMgr, InvoiceMgr } from "./Managers"
 import { Log } from "./Log"
 
 "use strict"
@@ -51,6 +51,7 @@ export class ActionProcessor {
          return this.bidProcessor.processBid(action, snapshot, this.settingsWrapper.bidAdditionalSeconds()) }
       else if (Action.isPurchaseRequest(action)) { return this.processPurchaseRequest(action, snapshot) }
       else if (Action.isAcceptRequest(action))   { return this.acceptPurchaseRequest(action, snapshot) }
+      else if (Action.isInvoicePayment(action))  { return this.processInvoicePayment(action, snapshot) }
       else {
          log.info("Bypassing " + desc(action))
          return null
@@ -99,7 +100,6 @@ export class ActionProcessor {
                promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_SUCCESS, itemId, item.name)) 
             }
             else { 
-
                const itemUpdate = { 
                   numberOfPurchaseReqs: numberOfPurchaseReqs,
                   purchaseReqs: admin.firestore.FieldValue.arrayUnion(purchaseReq),   
@@ -110,7 +110,7 @@ export class ActionProcessor {
                promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_FAIL, itemId, item.name)) 
             }
          }
-         else if (item.status == ItemMgr.STATUS_HOLD || item.status == ItemMgr.STATUS_SOLD) {
+         else if (item.status === ItemMgr.STATUS_HOLD || item.status === ItemMgr.STATUS_SOLD) {
             // purchase request came in after other requests processed manually
             promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_ALREADY_SOLD)) 
          }
@@ -163,7 +163,7 @@ export class ActionProcessor {
          // email purchase confirmation 
          promises.push(this.emailer.sendConfiguredEmail(userId, EmailMgr.TYPE_PURCHASE_SUCCESS, itemId, item.name)) 
          
-         let emailedUsers = new Set()
+         const emailedUsers = new Set()
          emailedUsers.add(userId)
          for (let purchaseReq of item.purchaseReqs) {            
             // email sorrys - note that a user could have made multiple purchase reqs
@@ -173,7 +173,7 @@ export class ActionProcessor {
             }
 
             // update purchaseRequest actions
-            const actionResult = purchaseReq.actionId == acceptedActionId ? Action.RESULT_PURCHASED : Action.RESULT_ALREADY_SOLD
+            const actionResult = purchaseReq.actionId === acceptedActionId ? Action.RESULT_PURCHASED : Action.RESULT_ALREADY_SOLD
             const actionUpdate = { status: Action.STATUS_PROCESSED, processedDate: processedDate, actionResult: actionResult } 
             processingState = log.returnInfo("Updating actions[id: " + purchaseReq.actionId + "]", actionUpdate)
             
@@ -185,6 +185,34 @@ export class ActionProcessor {
       })
       .catch(error => { return log.error("Error in " + processingState, error) })  
    }
+
+   processInvoicePayment(action: any, snapshot: any) {
+      let processingState = log.returnInfo("ActionProcessor.processInvoicePayment")
+      const invoiceId = action.invoiceId
+      
+      const invoiceDesc = "invoice[id: " + invoiceId + "]"
+      processingState = log.returnInfo("Processing payment for " + invoiceDesc)
+      const invoiceRef = this.db.collection("invoices").doc(invoiceId)
+      return invoiceRef.get().then(doc => {
+         const invoice = this.getDocData(doc, invoiceDesc)
+         const processedDate = Date.now()
+         const promises = []
+         
+         const prevAmountPaid = invoice.amountPaid ? invoice.amountPaid : 0
+         invoice.status = InvoiceMgr.STATUS_PAID_FULL
+         invoice.paidDate = processedDate
+         invoice.amountPaid = prevAmountPaid + action.amount
+         invoice.history.push({ date: processedDate, status: InvoiceMgr.STATUS_PAID_FULL })
+         InvoiceMgr.setPaidHtml(invoice)
+
+         processingState = log.returnInfo("Updating " + invoiceDesc, invoice)
+         promises.push(invoiceRef.update(invoice))         
+         
+         promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_PAID_FULL))
+         return Promise.all(promises)
+      })
+      .catch(error => { return log.error("Error in " + processingState, error) })  
+   }  
 
    getDocData(doc: any, docDesc: string) {
       if (!doc.exists) { throw new Error("Doc does not exist for " + docDesc) }

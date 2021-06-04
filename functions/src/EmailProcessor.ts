@@ -15,7 +15,7 @@ export class EmailProcessor {
 
    async processEmail(change: any, emailId: string) {
       log.info("processEmail")
-      let emailDesc = "emails[id: " + emailId + "]"
+      const emailDesc = "emails[id: " + emailId + "]"
       if (!change.after.exists) { return log.info(emailDesc + " deleted") }
    
       const email = change.after.data()

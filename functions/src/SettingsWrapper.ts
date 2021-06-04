@@ -23,10 +23,11 @@ export class SettingsWrapper {
    setSettings(settings: any) { this.settings = settings }
 
    fromEmailAddress() { return this.settings.fromEmail }
+   ccEmailAddress() { return this.settings.ccEmail }
    emailSubject(emailType: string) { return this.settings[emailType + EMAIL_SUBJECT_SUFFIX] }
    emailBody(emailType: string)    { return this.settings[emailType + EMAIL_BODY_SUFFIX] }
 
-   isAutomaticPurchaseReqProcessing() { return this.settings["purchaseReqProcessingType"] ==  PurchaseReqProcessingType.AUTOMATIC }
+   isAutomaticPurchaseReqProcessing() { return this.settings["purchaseReqProcessingType"] === PurchaseReqProcessingType.AUTOMATIC }
 
    siteLink(text: string) { return this.anchor(text) }
    itemLink(itemId: string, itemName: string) { return this.anchor(itemName, "#/item/" + itemId) }

@@ -49,13 +49,12 @@ export class Emailer {
 
          processingState = log.returnInfo("Creating email")
          const to = user.authEmailCopy ? user.authEmailCopy : user.anonUserEmail
-         const from = this.settingsWrapper.fromEmailAddress()
          const email = { 
             id: Uid.dateUid(),
             userId: userId,
             to: [to],
-            from: from,
-            cc: [from],
+            from: this.settingsWrapper.fromEmailAddress(),
+            cc: [this.settingsWrapper.ccEmailAddress()],
             message: { subject: subject, html: htmlMsg },
             referenceIds: referenceIds
          }

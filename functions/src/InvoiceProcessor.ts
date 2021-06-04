@@ -34,6 +34,7 @@ export class InvoiceProcessor {
       const invoiceDesc = "invoices[id: " + invoiceId + "]"
       if (!change.after.exists) { return log.info(invoiceDesc + " deleted") }
 
+      const invoiceBefore = change.before.data()
       const invoice = change.after.data()
       if (!invoice) { return log.error(invoiceDesc + " data does not exist") }
 
@@ -72,7 +73,7 @@ export class InvoiceProcessor {
          })
          .catch(error => { return log.error("Error sending Email", error) }) 
       } 
-      else if (InvoiceMgr.isPaidFull(invoice)) {
+      else if (InvoiceMgr.isPaidFull(invoice) && !InvoiceMgr.isPaidFull(invoiceBefore)) { 
          const promises = []
          for (const item of invoice.items) {
             const itemDesc = "items[id: " + item.id + "]"

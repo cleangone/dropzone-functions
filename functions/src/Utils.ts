@@ -7,4 +7,8 @@ export class Uid {
    public static uid()  { return uuid() }
 }
 
+export function dollars(amount: number) {
+   return amount ? "$" + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : ""
+}
+
 
