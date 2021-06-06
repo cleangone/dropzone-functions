@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin'
 import { Emailer } from "./Emailer"
+import { SettingsWrapper } from "./SettingsWrapper"
 import { Action, ItemMgr, UserMgr } from "./Managers"
 import { Uid } from "./Utils"
 import { Log } from "./Log"
@@ -10,18 +11,20 @@ const log = new Log()
 export class BidProcessor {
    db: admin.firestore.Firestore
    emailer: Emailer
+   settingsWrapper: SettingsWrapper
    
-   constructor(db: admin.firestore.Firestore, emailer: Emailer) {
+   constructor(db: admin.firestore.Firestore, emailer: Emailer, settingsWrapper: SettingsWrapper) {
       log.info("BidProcessor.constructor")
       this.db = db
       this.emailer = emailer
+      this.settingsWrapper = settingsWrapper
    }
 
-   processBid(action: any, snapshot: any, bidAdditionalSeconds: any) {
-      log.info("BidProcessor.processBid")
-   
+   processBid(action: any, snapshot: any) {
+      log.info("BidProcessor.processBid")   
       const itemId = action.itemId
       const userId = action.userId
+      const bidAdditionalSeconds = this.settingsWrapper.bidAdditionalSeconds() 
       
       let itemDesc = "item[id: " + itemId + "]"
       log.info("Processing bid on " + itemDesc)

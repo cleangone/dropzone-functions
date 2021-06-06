@@ -23,7 +23,7 @@ export class ActionProcessor {
       this.emailer = emailer
       this.settingsWrapper = settingsWrapper
       this.settingsGetter = new SettingsGetter(db, settingsWrapper) 
-      this.bidProcessor = new BidProcessor(db, emailer)
+      this.bidProcessor = new BidProcessor(db, emailer, settingsWrapper)
    }
 
    async processAction(snapshot: any) {
@@ -38,20 +38,15 @@ export class ActionProcessor {
       const action = snapshot.data()
       if (!action) { return log.error("Action does not exist") }
       
-      if (Action.isBid(action) || Action.isPurchaseRequest(action)) {
-         if (!action.itemId) { return log.error("action.itemId does not exist") }
-         if (!action.userId) { return log.error("action.userId does not exist") }
-      }
-
-      log.info("Processing " + desc(action))
-      if (Action.isWinningBid(action)) { 
+      if (action.actionResult === Action.RESULT_WINNING_BID) { 
          log.info("Bypassing winning bid " + desc(action)) 
          return null
       }
-      else if (Action.isBid(action)) { 
-         return this.bidProcessor.processBid(action, snapshot, this.settingsWrapper.bidAdditionalSeconds()) }
-      else if (Action.isPurchaseRequest(action)) { return this.processPurchaseRequest(action, snapshot) }
-      else if (Action.isAcceptRequest(action))   { return this.acceptPurchaseRequest(action, snapshot) }
+      
+      log.info("Processing " + desc(action))
+      if (action.actionType === Action.TYPE_BID)                { return this.bidProcessor.processBid(action, snapshot) }
+      else if (action.actionType === Action.TYPE_PURCHASE_REQ)  { return this.processPurchaseRequest(action, snapshot) }
+      else if (action.actionType === Action.TYPE_ACCEPT_REQ)    { return this.acceptPurchaseRequest(action, snapshot) }
       else if (action.actionType === Action.TYPE_INVOICE_PAY)   { return this.processInvoicePayment(action, snapshot) }
       else if (action.actionType === Action.TYPE_VERIFY_EMAIL)  { return this.verifyEmail(action, snapshot) }
       else if (action.actionType === Action.TYPE_CONFIRM_EMAIL) { return this.confirmEmailVerification(action, snapshot) }
@@ -63,6 +58,7 @@ export class ActionProcessor {
 
    processPurchaseRequest(action: any, snapshot: any) {
       let processingState = log.returnInfo("ActionProcessor.processPurchaseRequest")
+      if (!this.paramsExist(action, ["itemId", "userId"])) { return null }
       const itemId = action.itemId
       const userId = action.userId
       
@@ -137,6 +133,7 @@ export class ActionProcessor {
 
    acceptPurchaseRequest(action: any, snapshot: any) {
       let processingState = log.returnInfo("ActionProcessor.acceptPurchaseRequest")
+      if (!this.paramsExist(action, ["itemId", "userId", "refActionId"])) { return null }
       const itemId = action.itemId
       const userId = action.userId
       const acceptedActionId = action.refActionId
@@ -191,6 +188,7 @@ export class ActionProcessor {
 
    processInvoicePayment(action: any, snapshot: any) {
       let processingState = log.returnInfo("ActionProcessor.processInvoicePayment")
+      if (!this.paramsExist(action, ["invoiceId"])) { return null }
       const invoiceId = action.invoiceId
       
       const invoiceDesc = "invoice[id: " + invoiceId + "]"
@@ -223,6 +221,7 @@ export class ActionProcessor {
 
    verifyEmail(action: any, snapshot: any) {
       let processingState = log.returnInfo("ActionProcessor.verifyEmail")
+      if (!this.paramsExist(action, ["userId"])) { return null }
       const userId = action.userId
       
       const userDesc = "user[id: " + userId + "]"
@@ -239,7 +238,7 @@ export class ActionProcessor {
          promises.push(userRef.update(userUpdate)) 
          
          const text = this.settingsWrapper.companyName() + " email verification"
-         const link = this.settingsWrapper.anchor(text, "verify/" + userId + "/" + verifyToken)   
+         const link = this.settingsWrapper.anchor(text, "#/verify/" + userId + "/" + verifyToken)   
          const htmlMsg = "Click the below link to verify email<br><br>" + link
          promises.push(this.emailer.sendEmail(userId, "Verify Email", htmlMsg)) 
 
@@ -251,6 +250,7 @@ export class ActionProcessor {
 
    confirmEmailVerification(action: any, snapshot: any) {
       let processingState = log.returnInfo("ActionProcessor.confirmEmailVerification")
+      if (!this.paramsExist(action, ["userId", "token"])) { return null }
       const userId = action.userId
       const confirmToken = action.token
       
@@ -281,6 +281,17 @@ export class ActionProcessor {
       .catch(error => { return log.error("Error in " + processingState, error) })  
    }  
    
+   paramsExist(action: any, params: string[]) { 
+      let paramsExist = true
+      for (const param of params) {
+         if (!action[param]) {
+            log.error("Action." + param + " not found") 
+            paramsExist = false
+         }
+      }
+      return paramsExist
+   }
+      
    getDocData(doc: any, docDesc: string) {
       if (!doc.exists) { throw new Error("Doc does not exist for " + docDesc) }
       if (!doc.data()) { throw new Error("Doc.data does not exist for " + docDesc) }

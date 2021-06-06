@@ -23,11 +23,6 @@ export class Action {
    public static readonly RESULT_VERIFY_SENT  = 'Verification Email Sent'
    public static readonly RESULT_EMAIL_VERIFIED     = 'Email Verified'
    public static readonly RESULT_EMAIL_NOT_VERIFIED = 'Email Not Verified'
-   
-   public static isBid(action: any)             { return action.actionType === this.TYPE_BID }
-   public static isPurchaseRequest(action: any) { return action.actionType === this.TYPE_PURCHASE_REQ }
-   public static isAcceptRequest(action: any)   { return action.actionType === this.TYPE_ACCEPT_REQ }
-   public static isWinningBid(action: any) { return action.actionResult === this.RESULT_WINNING_BID }
 }
 
 export class Drop {
