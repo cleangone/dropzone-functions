@@ -3,7 +3,8 @@ import { BidProcessor } from "./BidProcessor"
 import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
-import { Action, EmailMgr, ItemMgr, InvoiceMgr } from "./Managers"
+import { Action, EmailMgr, ItemMgr, InvoiceMgr, UserMgr } from "./Managers"
+import { Uid } from "./Utils"
 import { Log } from "./Log"
 
 "use strict"
@@ -51,7 +52,9 @@ export class ActionProcessor {
          return this.bidProcessor.processBid(action, snapshot, this.settingsWrapper.bidAdditionalSeconds()) }
       else if (Action.isPurchaseRequest(action)) { return this.processPurchaseRequest(action, snapshot) }
       else if (Action.isAcceptRequest(action))   { return this.acceptPurchaseRequest(action, snapshot) }
-      else if (Action.isInvoicePayment(action))  { return this.processInvoicePayment(action, snapshot) }
+      else if (action.actionType === Action.TYPE_INVOICE_PAY)   { return this.processInvoicePayment(action, snapshot) }
+      else if (action.actionType === Action.TYPE_VERIFY_EMAIL)  { return this.verifyEmail(action, snapshot) }
+      else if (action.actionType === Action.TYPE_CONFIRM_EMAIL) { return this.confirmEmailVerification(action, snapshot) }
       else {
          log.info("Bypassing " + desc(action))
          return null
@@ -197,13 +200,17 @@ export class ActionProcessor {
          const invoice = this.getDocData(doc, invoiceDesc)
          const processedDate = Date.now()
          const promises = []
-         
+                  
+         // todo - implement partial payments
          const prevAmountPaid = invoice.amountPaid ? invoice.amountPaid : 0
          invoice.status = InvoiceMgr.STATUS_PAID_FULL
          invoice.paidDate = processedDate
          invoice.amountPaid = prevAmountPaid + action.amount
          invoice.history.push({ date: processedDate, status: InvoiceMgr.STATUS_PAID_FULL })
-         InvoiceMgr.setPaidHtml(invoice)
+         
+         if (action.paypal && action.paypal.shipping) {
+            invoice.shipping.paypal = action.paypal.shipping
+         }
 
          processingState = log.returnInfo("Updating " + invoiceDesc, invoice)
          promises.push(invoiceRef.update(invoice))         
@@ -214,6 +221,66 @@ export class ActionProcessor {
       .catch(error => { return log.error("Error in " + processingState, error) })  
    }  
 
+   verifyEmail(action: any, snapshot: any) {
+      let processingState = log.returnInfo("ActionProcessor.verifyEmail")
+      const userId = action.userId
+      
+      const userDesc = "user[id: " + userId + "]"
+      processingState = log.returnInfo("Verifying email for " + userDesc)
+      const userRef = this.db.collection("users").doc(userId)
+      return userRef.get().then(doc => {
+         const user = this.getDocData(doc, userDesc)
+         const processedDate = Date.now()
+         const promises = []
+
+         const verifyToken = Uid.uid() 
+         const emailVerificationToken = { email: UserMgr.getEmail(user), verifyToken: verifyToken, confirmToken: Uid.uid() }
+         const userUpdate = { emailVerificationTokens: admin.firestore.FieldValue.arrayUnion(emailVerificationToken) }
+         promises.push(userRef.update(userUpdate)) 
+         
+         const text = this.settingsWrapper.companyName() + " email verification"
+         const link = this.settingsWrapper.anchor(text, "verify/" + userId + "/" + verifyToken)   
+         const htmlMsg = "Click the below link to verify email<br><br>" + link
+         promises.push(this.emailer.sendEmail(userId, "Verify Email", htmlMsg)) 
+
+         promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_VERIFY_SENT))
+         return Promise.all(promises)
+      })
+      .catch(error => { return log.error("Error in " + processingState, error) })  
+   }  
+
+   confirmEmailVerification(action: any, snapshot: any) {
+      let processingState = log.returnInfo("ActionProcessor.confirmEmailVerification")
+      const userId = action.userId
+      const confirmToken = action.token
+      
+      const userDesc = "user[id: " + userId + "]"
+      processingState = log.returnInfo("Confirming email verification for " + userDesc)
+      const userRef = this.db.collection("users").doc(userId)
+      return userRef.get().then(doc => {
+         const user = this.getDocData(doc, userDesc)
+         const email = UserMgr.getEmail(user)
+         const processedDate = Date.now()
+         const promises = []
+
+         let result = Action.RESULT_EMAIL_NOT_VERIFIED
+         if (user.emailVerificationTokens) {
+            for (const verificationToken of user.emailVerificationTokens) {
+               if (verificationToken.confirmToken == confirmToken && verificationToken.email == email) { 
+                  processingState = log.returnInfo("Verifying " + userDesc + " email " + email)
+                  const userUpdate = { verifiedEmail: email }
+                  result = Action.RESULT_EMAIL_VERIFIED
+                  promises.push(userRef.update(userUpdate)) 
+               }
+            }
+         }
+         
+         promises.push(this.updateAction(action, snapshot, processedDate, result))
+         return Promise.all(promises)
+      })
+      .catch(error => { return log.error("Error in " + processingState, error) })  
+   }  
+   
    getDocData(doc: any, docDesc: string) {
       if (!doc.exists) { throw new Error("Doc does not exist for " + docDesc) }
       if (!doc.data()) { throw new Error("Doc.data does not exist for " + docDesc) }

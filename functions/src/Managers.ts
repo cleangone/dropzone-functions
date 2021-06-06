@@ -1,11 +1,11 @@
-import { dollars } from "./Utils"
-
 
 export class Action {
    public static readonly TYPE_BID            = 'Bid'
    public static readonly TYPE_PURCHASE_REQ   = 'Purchase Request'
    public static readonly TYPE_ACCEPT_REQ     = 'Accept Purchase Request'
    public static readonly TYPE_INVOICE_PAY    = 'Invoice Payment'
+   public static readonly TYPE_VERIFY_EMAIL   = 'Verify Email'
+   public static readonly TYPE_CONFIRM_EMAIL  = 'Confirm Email Verification'
    
    public static readonly STATUS_CREATED      = 'Created'
    public static readonly STATUS_QUEUED       = 'Queued'
@@ -20,11 +20,13 @@ export class Action {
    public static readonly RESULT_WINNING_BID  = 'Winning Bid'
    public static readonly RESULT_PAID_FULL    = 'Paid In Full'
    public static readonly RESULT_PARTIAL_PAID = 'Patrtially Paid'
+   public static readonly RESULT_VERIFY_SENT  = 'Verification Email Sent'
+   public static readonly RESULT_EMAIL_VERIFIED     = 'Email Verified'
+   public static readonly RESULT_EMAIL_NOT_VERIFIED = 'Email Not Verified'
    
    public static isBid(action: any)             { return action.actionType === this.TYPE_BID }
    public static isPurchaseRequest(action: any) { return action.actionType === this.TYPE_PURCHASE_REQ }
    public static isAcceptRequest(action: any)   { return action.actionType === this.TYPE_ACCEPT_REQ }
-   public static isInvoicePayment(action: any)  { return action.actionType === this.TYPE_INVOICE_PAY }
    public static isWinningBid(action: any) { return action.actionResult === this.RESULT_WINNING_BID }
 }
 
@@ -63,31 +65,6 @@ export class InvoiceMgr {
    public static readonly SEND_STATUS_SENDING = 'Sending'
    public static readonly SEND_STATUS_SENT    = 'Sent'
    public static readonly SEND_STATUS_ERROR   = 'Send Error'
-   
-   public static setPaidHtml(invoice: any)  { 
-      if (invoice.paidDate) {
-         const line = tr(td(hr(), "colspan=3"))
-         const amountPaid = tr(td("", "") + td("Amount Paid", "") + tdRight(dollars(invoice.amountPaid)))
-         const amountRemaining = tr(td("") + td(b("Amount Remaining")) + tdRight(b('0')))
-         invoice.htmlSections.paid = line + amountPaid + amountRemaining
-         invoice.htmlSections.note = ""
-         
-         InvoiceMgr.setHtml(invoice)
-      }
-   }
-
-   public static setHtml(invoice: any) { 
-      invoice.html = 
-         invoice.htmlSections.date + 
-         invoice.htmlSections.company +
-         br() + br() + 
-         invoice.htmlSections.user + 
-         br() + 
-         table(invoice.htmlSections.items + invoice.htmlSections.paid, 
-            "width=100% style='border:1px solid'") +
-         br() + 
-         invoice.htmlSections.note
-   }
 
    public static isCreated(invoice: any)  { return invoice.status === this.STATUS_CREATED }
    public static isRevised(invoice: any)  { return invoice.status === this.STATUS_REVISED }
@@ -122,17 +99,6 @@ export class SmsMgr {
 export class UserMgr {
    public static readonly ALERT_TYPE_OUTBID   = 'Outbid'
    public static readonly ALERT_TYPE_LATE_BID = 'Late Bid'
+
+   public static getEmail(user: any) { return user.authEmailCopy ? user.authEmailCopy : user.anonUserEmail }
 }
-
-function right()                    { return "align=right" }
-function b(innerHtml: string)       { return ele(innerHtml, "b") }
-function br()                       { return closedEle("br") }
-function hr()                       { return closedEle("hr") }
-function tr(innerHtml: string)      { return ele(innerHtml, "tr") }
-function tdRight(innerHtml: string) { return td(innerHtml, right()) }
-function td(innerHtml: string, attr: string = "")    { return ele(innerHtml, "td", attr) }
-function table(innerHtml: string, attr: string = "") { return ele(innerHtml, "table", attr) }
-
-function ele(innerHtml: string, tag: string, attr: string = "") { return openTagPrefix(tag, attr) + ">" + innerHtml + "</" + tag +">" }
-function closedEle(tag: string, attr: string = "")   { return openTagPrefix(tag, attr) + "/>" }
-function openTagPrefix(tag: string, attr: string)    { return "<" + tag + " " + attr }

@@ -3,6 +3,7 @@ import { Emailer } from "./Emailer"
 import { SettingsWrapper } from "./SettingsWrapper"
 import { SettingsGetter } from "./SettingsGetter"
 import { InvoiceMgr, ItemMgr } from "./Managers"
+import { getInvoiceHtml } from "./HtmlGenerator"
 import { Log } from "./Log"
 
 "use strict"
@@ -47,7 +48,7 @@ export class InvoiceProcessor {
          const subject = subjectPrefix + invoice.name
          const htmlMsg = 
             "<table width=400px style='border:1px solid; padding:5px;'><tr><td>" + 
-            invoice.html + 
+            getInvoiceHtml(invoice, this.settingsWrapper) + 
             "</td></tr></table>"
          
          return this.emailer.sendInvoiceEmail(invoice.userId, subject, htmlMsg, invoice.id).then(() => {

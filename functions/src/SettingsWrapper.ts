@@ -22,8 +22,12 @@ export class SettingsWrapper {
 
    setSettings(settings: any) { this.settings = settings }
 
+   companyName() { return this.settings.companyName }
+   siteUrl() { return this.settings.siteUrl }
    fromEmailAddress() { return this.settings.fromEmail }
    ccEmailAddress() { return this.settings.ccEmail }
+   invoiceNote() { return this.settings.invoiceNote }
+   
    emailSubject(emailType: string) { return this.settings[emailType + EMAIL_SUBJECT_SUFFIX] }
    emailBody(emailType: string)    { return this.settings[emailType + EMAIL_BODY_SUFFIX] }
 

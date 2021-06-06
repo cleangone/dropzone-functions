@@ -64,7 +64,7 @@ export const processEmail = functions.firestore
    .document('emails/{id}')
    .onWrite((change, context) => {
       if (!emailProcessor) { emailProcessor = new EmailProcessor(db) }
-      return emailProcessor.processEmail(change, context.params.id)
+      // return emailProcessor.processEmail(change, context.params.id)
 })
 
 export const processError = functions.firestore
