@@ -88,7 +88,7 @@ export class ActionProcessor {
                   buyPrice: item.startPrice, 
                   buyerId: userId, 
                   status: ItemMgr.STATUS_HOLD,
-                  userUpdatedDate: processedDate, 
+                  lastBidReqDate: processedDate, 
                   numberOfPurchaseReqs: numberOfPurchaseReqs, 
                   purchaseReqs: admin.firestore.FieldValue.arrayUnion(purchaseReq)
                }
@@ -117,7 +117,7 @@ export class ActionProcessor {
             log.info("Queuing purchase request for " + itemDesc)
             const itemUpdate = { 
                status: ItemMgr.STATUS_REQUESTED,
-               userUpdatedDate: processedDate,
+               lastBidReqDate: processedDate,
                numberOfPurchaseReqs: numberOfPurchaseReqs,
                purchaseReqs: admin.firestore.FieldValue.arrayUnion(purchaseReq),   
             }
@@ -153,7 +153,6 @@ export class ActionProcessor {
             buyPrice: item.startPrice,
             buyDate: processedDate, 
             acceptedPurchaseReqId: acceptedActionId,
-            userUpdatedDate: processedDate, 
          }
 
          processingState = log.returnInfo("Updating " + itemDesc, itemUpdate)
@@ -236,12 +235,8 @@ export class ActionProcessor {
          const emailVerificationToken = { email: UserMgr.getEmail(user), verifyToken: verifyToken, confirmToken: Uid.uid() }
          const userUpdate = { emailVerificationTokens: admin.firestore.FieldValue.arrayUnion(emailVerificationToken) }
          promises.push(userRef.update(userUpdate)) 
-         
-         const text = this.settingsWrapper.companyName() + " email verification"
-         const link = this.settingsWrapper.anchor(text, "#/verify/" + userId + "/" + verifyToken)   
-         const htmlMsg = "Click the below link to verify email<br><br>" + link
-         promises.push(this.emailer.sendEmail(userId, "Verify Email", htmlMsg)) 
-
+               
+         promises.push(this.emailer.sendVerifyEmail(userId, verifyToken)) 
          promises.push(this.updateAction(action, snapshot, processedDate, Action.RESULT_VERIFY_SENT))
          return Promise.all(promises)
       })

@@ -36,6 +36,13 @@ export class Emailer {
       return this.sendEmail(userId, subject, htmlMsg, { invoiceId: invoiceId } ) 
    }
    
+   async sendVerifyEmail(userId: string, verifyToken: string) {
+      const text = this.settingsWrapper.companyName() + " email verification"
+      const link = this.settingsWrapper.anchor(text, "#/verify/" + userId + "/" + verifyToken)   
+      const htmlMsg = "Click the below link to verify email<br><br>" + link
+      return this.sendEmail(userId, "Verify Email", htmlMsg)
+   }
+
    async sendEmail(userId: string, subject: string, htmlMsg: string, referenceIds = {}) {
       const userDesc = "user[id: " + userId + "]"
       let processingState = log.returnInfo("Getting " + userDesc)

@@ -63,14 +63,14 @@ export class BidProcessor {
                   currBid: newBid, 
                   status: ItemMgr.STATUS_DROPPING,  
                   dropDoneDate: dropDoneDate,
-                  userUpdatedDate: processedDate, 
+                  lastBidReqDate: processedDate, 
                } : { 
                   buyPrice: item.startPrice, 
                   bidderIds: admin.firestore.FieldValue.arrayUnion(userId),
                   numberOfBids: numberOfBids, 
                   currBid: newBid, 
                   status: ItemMgr.STATUS_LIVE,
-                  userUpdatedDate: processedDate,
+                  lastBidReqDate: processedDate,
                }
                bidResult.firstBid(itemUpdate, dropDoneDate) 
             }
@@ -92,7 +92,7 @@ export class BidProcessor {
                   numberOfBids: numberOfBids, 
                   currBid: newBid, 
                   prevBids: admin.firestore.FieldValue.arrayUnion(item.currBid),
-                  userUpdatedDate: processedDate, 
+                  lastBidReqDate: processedDate, 
                }
                bidResult.highBidIncreased(itemUpdate, prevActionId ) 
             }
@@ -108,14 +108,14 @@ export class BidProcessor {
                currBid: newBid, 
                prevBids: admin.firestore.FieldValue.arrayUnion(item.currBid),
                dropDoneDate: dropDoneDate,
-               userUpdatedDate: processedDate, 
+               lastBidReqDate: processedDate, 
             } : { 
                buyPrice: buyPrice, 
                bidderIds: admin.firestore.FieldValue.arrayUnion(userId),
                numberOfBids: numberOfBids, 
                currBid: newBid, 
                prevBids: admin.firestore.FieldValue.arrayUnion(item.currBid),
-               userUpdatedDate: processedDate, 
+               lastBidReqDate: processedDate, 
             }
             bidResult.highBid(itemUpdate, item, dropDoneDate, prevActionId) 
          }
@@ -128,13 +128,13 @@ export class BidProcessor {
                numberOfBids: numberOfBids, 
                prevBids: admin.firestore.FieldValue.arrayUnion(newBid),
                dropDoneDate: dropDoneDate,
-               userUpdatedDate: processedDate, 
+               lastBidReqDate: processedDate, 
             } : { 
                buyPrice: buyPrice, 
                bidderIds: admin.firestore.FieldValue.arrayUnion(userId),
                numberOfBids: numberOfBids, 
                prevBids: admin.firestore.FieldValue.arrayUnion(newBid),
-               userUpdatedDate: processedDate, 
+               lastBidReqDate: processedDate, 
             }
 
             bidResult.outbid(itemUpdate, item, userId, dropDoneDate) 
